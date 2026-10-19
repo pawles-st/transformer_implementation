@@ -10,6 +10,7 @@ class AttentionHead(nn.Module):
             d_v: Value vector dimension.
         """
         super().__init__()
+        self.d_k = d_k
         self.Wk = nn.Parameter(torch.randn(d_e, d_k))
         self.Wq = nn.Parameter(torch.randn(d_e, d_k))
         self.Wv = nn.Parameter(torch.randn(d_e, d_v))
@@ -25,7 +26,7 @@ class AttentionHead(nn.Module):
         K = x@self.Wk        
         V = x@self.Wv        
 
-        return torch.softmax(Q@torch.transpose(K,0,1), dim=1)@V
+        return torch.softmax(Q@torch.transpose(K,0,1)*(self.d_k**(-0.5)), dim=1)@V
 
 
 class MultiHeadAttention(nn.Module):
