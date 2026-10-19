@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+from attention import AttentionHead
+from attention import MultiHeadAttention
 
 class EncoderLayer(nn.Module):
     """Single encoder layer composed of Multi-Head Attention and Feed-Forward Network."""
@@ -15,7 +17,11 @@ class EncoderLayer(nn.Module):
             h: Number of attention heads.
         """
         super().__init__()
-        raise NotImplementedError
+        self.multi_head = MultiHeadAttention(d_e, d_k, d_v, h)
+        self.FFN = nn.Sequential(
+            nn.Linear(d_e, d_ff),
+            nn.ReLU(),
+            nn.Linear(d_ff, d_e))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:  # Compute multi-head attention and project: (seq_len, h * d_v) -> (seq_len, d_e).
         """Pass input through the encoder layer.
@@ -26,7 +32,16 @@ class EncoderLayer(nn.Module):
         Returns:
             FloatTensor of shape (seq_len, d_e).
         """
-        raise NotImplementedError
+        m_h = self.multi_head(x) + x
+        # tutaj jeszcze layerNorm (później)
+        
+        y = self.FFN(m_h)
+        
+        # połączenie rezydualne
+        # tutaj jeszcze layerNorm (później)
+        y = y + m_h
+
+        return y
 
 class Encoder(nn.Module):  # Stack of N identical EncoderLayers.
     """Encoder module in a transformer architecture composed of EncoderLayers."""
@@ -43,7 +58,10 @@ class Encoder(nn.Module):  # Stack of N identical EncoderLayers.
             h: Number of attention heads.
         """
         super().__init__()
-        raise NotImplementedError
+        self.encoder_layers = nn.Sequential(EncoderLayer(d_e, d_k, d_v, d_ff, h))
+        for _ in range(num_layers-1):
+            self.encoder_layers.append(EncoderLayer(d_e, d_k, d_v, d_ff, h))
+
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Pass input through each of the encoder layers.
@@ -54,4 +72,6 @@ class Encoder(nn.Module):  # Stack of N identical EncoderLayers.
         Returns:
             FloatTensor of shape (seq_len, d_e).
         """
-        raise NotImplementedError
+        return self.encoder_layers(x)
+
+
