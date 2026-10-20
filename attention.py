@@ -2,8 +2,11 @@ import torch
 import torch.nn as nn
 
 class AttentionHead(nn.Module):
+    """Single attention head computing scaled dot-product attention."""
+
     def __init__(self, d_e: int, d_k: int, d_v: int) -> None:
-        """
+        """Initialise the attention head.
+
         Args:
             d_e: Embedding dimension.
             d_k: Query/key vector dimension.
@@ -15,12 +18,12 @@ class AttentionHead(nn.Module):
         self.Wq = nn.Parameter(torch.randn(d_e, d_k))
         self.Wv = nn.Parameter(torch.randn(d_e, d_v))
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:  # Compute multi-head attention and project: (seq_len, h * d_v) -> (seq_len, d_e).
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
             x: FloatTensor of shape (seq_len, d_e).
         Returns:
-            FloatTensor of shape (seq_len, d_e).
+            FloatTensor of shape (seq_len, d_v).
         """
         Q = x@self.Wq        
         K = x@self.Wk        
@@ -45,7 +48,7 @@ class MultiHeadAttention(nn.Module):
         self.heads = nn.ModuleList([AttentionHead(d_e, d_k, d_v) for _ in range(h)])
         self.WO = nn.Parameter(torch.rand(d_v*h, d_e))
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor: # Compute multi-head attention and project: (seq_len, h * d_v) -> (seq_len, d_e).
         """Compute multi-head attention over input representations.
 
         Args:
