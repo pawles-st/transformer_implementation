@@ -1,71 +1,81 @@
 import torch
+from collections import Counter
+from torchtext.data.utils import get_tokenizer
+from torchtext.vocab import Vocab
 
 class Tokeniser:
-    """Tokeniser for converting raw text into integer token sequences.
-
-        doctest:
-            >>> tokeniser = Tokeniser()
-            >>> corpus = ["Hello, world!"]
-            >>> tokeniser.build_vocab(corpus)
-            >>> encoded = tokeniser.encode("Hello, world!")
-            >>> encoded
-            tensor([0, 1, 2, 3])
-            >>> decoded = tokeniser.decode(encoded)
-            >>> decoded
-            'Hello , world !'
-        """
-
-    def __init__(self) -> None:
-        """Initialise the tokeniser."""
-        self.token_to_id: dict[str, int] = {}
-        self.id_to_token: dict[int, str] = {}
-            
-    def _tokenize(self, text: str) -> list[str]:
-        characters = [".", ",", "!", "?", "(", ")"]
-
-        for char in characters:
-            text = text.replace(char, f" {char} ")
-        
-        return text.split()
+    """
+    Tokeniser for converting raw text into integer token sequences.
     
-    def build_vocab(self, texts: list[str]) -> None:
-        for text in texts:
-            tokens = self._tokenize(text)
+    Doctest:
+        >>> tokeniser = Tokeniser("Hello world!")
+        >>> tokeniser.decode(tokeniser.encode("Hello world!"))
+        'hello world !'
+    """
 
-            for token in tokens:
-                if token not in self.token_to_id:
-                    token_id = len(self.token_to_id)
+    def __init__(self, text: str) -> None:
+        """
+        Initialise the tokeniser and build its vocabulary.
 
-                    self.token_to_id[token] = token_id
-                    self.id_to_token[token_id] = token 
+        The input text is tokenised using 'basic_english'.
 
-    def encode(self, text: str) -> torch.Tensor:
-        """Encode a string into a 1D tensor of token IDs.
+        'Counter' counts how many times each token occurs in the
+        tokenised text. This frequency information is used by 'Vocab'
+        to build the vocabulary.
+
+        'Vocab' assigns an integer ID to each token and provides
+        mappings between tokens and their IDs. The special tokens
+        '<pad>', '<unk>', and '<EOS>' are placed at the beginning
+        of the vocabulary in the specified order.
 
         Args:
-            text: Input string to tokenise.
+            text: Text used to build the vocabulary.
+        """
+        self.tokenizer = get_tokenizer("basic_english")
+        self.vocab = Vocab(
+            Counter(self.tokenizer(text)),
+            specials=["<pad>", "<unk>", "<EOS>"],
+            specials_first=True,
+        )
+        self.vocab_size: int = len(self.vocab)
+            
+            
+    def encode(self, text: str) -> torch.Tensor:
+        """
+        Convert a string into a 1D tensor of token IDs.
+
+        The tokenizer splits the text into tokens, and the vocabulary
+        maps them to integer IDs. Tokens not found in the vocabulary
+        are mapped to the '<unk>' token.
+
+        Args:
+            text: Input text to tokenize.
 
         Returns:
-            LongTensor of shape (seq_len,).
+            A 1D torch.Tensor of dtype torch.long with shape (seq_len,).
         """
-        
-        tokens = self._tokenize(text)
-        token_ids = [self.token_to_id[token] for token in tokens]
-        
-        return torch.tensor(token_ids, dtype=torch.long)
+        words: list[str] = self.tokenizer(text)  
+        ids: list[int] = [self.vocab[word] for word in words]
+        long_tensor = torch.tensor(ids, dtype=torch.long)
+        return long_tensor
 
     def decode(self, token_ids: torch.Tensor) -> str:
-        """Decode a 1D tensor of token IDs into a string.
+        """
+        Convert a 1D tensor of token IDs into a string.
+
+        The vocabulary maps each token ID back to its token. The tokens
+        are joined with single spaces, so the original text formatting
+        is not preserved exactly.
 
         Args:
-            token_ids: Tensor containing token IDs.
+            token_ids: A 1D torch.Tensor containing token IDs.
 
         Returns:
-            Decoded string.
+            A string containing the decoded tokens separated by spaces.
         """
-        tokens = [self.id_to_token[token_id.item()] for token_id in token_ids]
-
-        return " ".join(tokens)
+        words: list[str] = [self.vocab.itos[i] for i in token_ids.tolist()]
+        decoded_string: list[str] = " ".join(words)
+        return decoded_string
         
         
 if __name__ == "__main__":
