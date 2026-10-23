@@ -49,14 +49,14 @@ class Embedder(nn.Module):
 
         Args:
             token_ids: A torch.long tensor containing token IDs.
-                It can have any shape, such as (seq_len,) or
-                (batch_size, seq_len).
+                It can have any shape, such as seq_len.
 
         Returns:
             A floating-point tensor with shape
             (*token_ids.shape, d_e).
         """
-        return self.embedding(token_ids) * math.sqrt(self.d_e)
+        x = self.embedding(token_ids) * math.sqrt(self.d_e)
+        return x
 
 
 if __name__ == "__main__":
