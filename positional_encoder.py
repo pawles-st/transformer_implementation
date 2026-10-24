@@ -2,6 +2,7 @@ import math
 import torch
 import torch.nn as nn
 
+
 class PositionalEncoder(nn.Module):
     """
     Add sinusoidal positional encodings to token embeddings.
@@ -38,7 +39,6 @@ class PositionalEncoder(nn.Module):
         super().__init__()
         self.d_e = d_e
         
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Add sinusoidal positional encodings to token embeddings.
@@ -60,7 +60,7 @@ class PositionalEncoder(nn.Module):
         position = torch.arange(seq_len, dtype=x.dtype, device=x.device).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, self.d_e, 2, dtype=x.dtype, device=x.device)*(-math.log(10000.0) / self.d_e))
 
-        pe = torch.zeros(x.size(0), x.size(1), dtype=x.dtype, device=x.device)
+        pe = torch.zeros(x.size(0), self.d_e, dtype=x.dtype, device=x.device)
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
 

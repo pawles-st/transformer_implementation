@@ -3,6 +3,7 @@ from collections import Counter
 from torchtext.data.utils import get_tokenizer
 from torchtext.vocab import Vocab
 
+
 class Tokeniser:
     """
     Tokeniser for converting raw text into integer token sequences.
@@ -38,7 +39,9 @@ class Tokeniser:
             specials_first=True,
         )
         self.vocab_size: int = len(self.vocab)
-            
+               
+    def get_vocab_size(self) -> int:
+        return self.vocab_size
             
     def encode(self, text: str) -> torch.Tensor:
         """

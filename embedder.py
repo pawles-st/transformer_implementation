@@ -2,6 +2,7 @@ import math
 import torch
 import torch.nn as nn
 
+
 class Embedder(nn.Module):
     """
     Convert token IDs into learned, scaled embedding vectors.
@@ -39,7 +40,6 @@ class Embedder(nn.Module):
         self.d_e = d_e
         self.embedding = nn.Embedding(vocab_size, d_e)
         
-
     def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
         """
         Map token IDs to scaled embedding vectors.
@@ -55,8 +55,7 @@ class Embedder(nn.Module):
             A floating-point tensor with shape
             (*token_ids.shape, d_e).
         """
-        x = self.embedding(token_ids) * math.sqrt(self.d_e)
-        return x
+        return self.embedding(token_ids) * math.sqrt(self.d_e)
 
 
 if __name__ == "__main__":
