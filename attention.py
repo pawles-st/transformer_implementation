@@ -62,5 +62,5 @@ class MultiHeadAttention(nn.Module):
 
         # połączenie rezydualne
         # tutaj jeszcze layerNorm (później)
-        multi_head = multi_head@self.WO + x
+        multi_head = multi_head@self.WO
         return multi_head
