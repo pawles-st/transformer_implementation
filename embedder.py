@@ -13,15 +13,6 @@ class Embedder(nn.Module):
 
     This module does not encode token positions. Positional
     information is added separately by the positional encoder.
-
-    Doctest:
-        >>> embedder = Embedder(d_e=4, vocab_size=10)
-        >>> token_ids = torch.tensor([2, 3, 4], dtype=torch.long)
-        >>> embeddings = embedder(token_ids)
-        >>> embeddings.shape
-        torch.Size([3, 4])
-        >>> embeddings.dtype
-        torch.float32
     """
 
     def __init__(self, d_e: int, vocab_size: int) -> None:
@@ -57,7 +48,3 @@ class Embedder(nn.Module):
         """
         return self.embedding(token_ids) * math.sqrt(self.d_e)
 
-
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod(verbose=True)

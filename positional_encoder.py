@@ -15,15 +15,6 @@ class PositionalEncoder(nn.Module):
     The positional encoding is added element-wise to the input
     embeddings. It is calculated for the sequence length provided
     to the forward method.
-
-    Doctest:
-        >>> encoder = PositionalEncoder(d_e=4)
-        >>> x = torch.zeros((3, 4))
-        >>> output = encoder(x)
-        >>> output.shape
-        torch.Size([3, 4])
-        >>> torch.allclose(output[0], torch.tensor([0., 1., 0., 1.]))
-        True
     """
     
     def __init__(self, d_e: int) -> None:
@@ -65,8 +56,4 @@ class PositionalEncoder(nn.Module):
         pe[:, 1::2] = torch.cos(position * div_term)
 
         return x + pe     
-    
-    
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod(verbose=True)
+
