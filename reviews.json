@@ -1,0 +1,18 @@
+[
+  {"text": "This movie was absolutely fantastic and brilliant.", "label": "positive"},
+  {"text": "I loved everything about this product, truly excellent quality.", "label": "positive"},
+  {"text": "An incredible experience with wonderful staff and delicious food.", "label": "positive"},
+  {"text": "Superb service and outstanding performance, highly recommended.", "label": "positive"},
+  {"text": "A magnificent masterpiece that exceeded all my expectations.", "label": "positive"},
+  {"text": "The design is gorgeous and works perfectly every single time.", "label": "positive"},
+  {"text": "Great value for money, very happy and thoroughly satisfied.", "label": "positive"},
+  {"text": "Remarkable craftsmanship and delightfully fast delivery.", "label": "positive"},
+  {"text": "This movie was completely awful and painfully boring.", "label": "negative"},
+  {"text": "I hated everything about this product, truly terrible quality.", "label": "negative"},
+  {"text": "A dreadful experience with horrible staff and disgusting food.", "label": "negative"},
+  {"text": "Atrocious service and abysmal performance, strongly avoid.", "label": "negative"},
+  {"text": "A pathetic disaster that failed to meet any basic expectations.", "label": "negative"},
+  {"text": "The design is ugly and breaks constantly every single time.", "label": "negative"},
+  {"text": "Total waste of money, very disappointed and thoroughly dissatisfied.", "label": "negative"},
+  {"text": "Abominable craftsmanship and terribly slow delivery.", "label": "negative"}
+]
