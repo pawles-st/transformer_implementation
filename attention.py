@@ -60,7 +60,7 @@ class MultiHeadAttention(nn.Module):
         attention = [head(x) for head in self.heads]
         multi_head = torch.cat(attention, dim=1) 
 
-        # połączenie rezydualne
+        # połączenie residualne
         # tutaj jeszcze layerNorm (później)
         multi_head = multi_head@self.WO
         return multi_head

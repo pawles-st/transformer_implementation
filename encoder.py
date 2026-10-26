@@ -18,6 +18,8 @@ class EncoderLayer(nn.Module):
         """
         super().__init__()
         self.multi_head = MultiHeadAttention(d_e, d_k, d_v, h)
+        self.layer_norm1 = nn.LayerNorm(d_e)
+        self.layer_norm2 = nn.LayerNorm(d_e)
         self.FFN = nn.Sequential(
             nn.Linear(d_e, d_ff),
             nn.ReLU(),
@@ -32,14 +34,14 @@ class EncoderLayer(nn.Module):
         Returns:
             FloatTensor of shape (seq_len, d_e).
         """
-        m_h = self.multi_head(x) + x
-        # tutaj jeszcze layerNorm (później)
-        
+
+        # add + norm
+        m_h = self.layer_norm1(self.multi_head(x) + x)
+
         y = self.FFN(m_h)
         
-        # połączenie rezydualne
-        # tutaj jeszcze layerNorm (później)
-        y = y + m_h
+        # add + Norm
+        y = self.layer_norm2(y + m_h)
 
         return y
 
