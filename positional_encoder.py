@@ -28,6 +28,7 @@ class PositionalEncoder(nn.Module):
             d_e: Dimension of the input embedding vectors.
         """
         super().__init__()
+        assert d_e % 2 == 0, f"Embedding dimension d_e ({d_e}) must be even."
         self.d_e = d_e
         
     def forward(self, x: torch.Tensor) -> torch.Tensor:
