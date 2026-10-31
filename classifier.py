@@ -6,10 +6,7 @@ from tokeniser import Tokeniser
 from embedder import Embedder
 from positional_encoder import PositionalEncoder
 from encoder import Encoder
-
-
 from category import Category
-
 
 # Main module of the project. The class tree is:
 #
@@ -51,7 +48,7 @@ class Classifier(nn.Module):
         # Category mapping
         self.categories = list(Category)
         self.category_to_idx = {cat: i for i, cat in enumerate(self.categories)}
-        num_classes = len(self.categories) if len(self.categories) > 0 else 2
+        num_classes = len(self.categories)
 
         # Core pipeline components
         self.tokeniser = Tokeniser()

@@ -28,7 +28,7 @@ def run_training(epochs: int = 50, lr: float = 1e-3) -> None:
     )
 
     print(f"Training classifier for {epochs} epochs...")
-    for epoch in range(1, epochs + 1):
+    for epoch in range(0, epochs + 1):
         random.shuffle(dataset)
 
         # Fit model on each review example
