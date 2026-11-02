@@ -1,6 +1,6 @@
 """Training and evaluation pipeline for the Stanford Sentiment Treebank (SST-2) dataset.
 
-Trains the Classifier model sample-by-sample using its native fit(text, label) interface.
+Trains the Classifier model on minibatches using its native fit(texts, labels) interface.
 """
 
 import argparse
@@ -72,13 +72,15 @@ def load_sst2_split(file_path: Path, max_samples: int | None = None) -> list[tup
 def evaluate(
     model: Classifier,
     dataset: list[tuple[str, Category]],
+    batch_size: int = 32,
     desc: str = "Evaluating",
 ) -> tuple[float, float]:
-    """Evaluate accuracy and average cross-entropy loss over a split.
+    """Evaluate accuracy and average cross-entropy loss over a split using minibatches.
 
     Args:
         model: The Classifier instance.
         dataset: List of (sentence, Category) evaluation samples.
+        batch_size: Minibatch size for evaluation.
         desc: Progress description string.
 
     Returns:
@@ -88,16 +90,29 @@ def evaluate(
     total_loss = 0.0
     correct = 0
 
+    batches = [
+        dataset[i : i + batch_size]
+        for i in range(0, len(dataset), batch_size)
+    ]
+
     with torch.no_grad():
-        for text, true_label in tqdm(dataset, desc=desc, leave=False):
-            logits = model.forward(text)
-            target = torch.tensor([model.category_to_idx[true_label]], dtype=torch.long)
-            loss = F.cross_entropy(logits, target)
+        for batch in tqdm(batches, desc=desc, leave=False):
+            batch_texts = [text for text, _ in batch]
+            batch_labels = [label for _, label in batch]
+
+            logits = model.forward(batch_texts)
+            targets = torch.tensor(
+                [model.category_to_idx[lbl] for lbl in batch_labels],
+                dtype=torch.long,
+                device=logits.device,
+            )
+            loss = F.cross_entropy(logits, targets, reduction="sum")
             total_loss += loss.item()
 
-            pred_idx = torch.argmax(logits, dim=1).item()
-            if model.categories[pred_idx] == true_label:
-                correct += 1
+            pred_indices = torch.argmax(logits, dim=1).tolist()
+            for pred_idx, true_label in zip(pred_indices, batch_labels):
+                if model.categories[pred_idx] == true_label:
+                    correct += 1
 
     avg_loss = total_loss / len(dataset) if dataset else 0.0
     accuracy = (correct / len(dataset)) * 100.0 if dataset else 0.0
@@ -107,6 +122,7 @@ def evaluate(
 def run_pipeline(
     epochs: int = 3,
     lr: float = 1e-4,
+    batch_size: int = 32,
     max_train_samples: int | None = None,
     max_val_samples: int | None = None,
     num_layers: int = 2,
@@ -139,10 +155,13 @@ def run_pipeline(
     )
 
     total_params = sum(p.numel() for p in model.parameters())
-    print(f"Initialized Classifier with {total_params:,} parameters (layers={num_layers}, d_e={d_e}, heads={h}).\n")
+    print(
+        f"Initialized Classifier with {total_params:,} parameters "
+        f"(layers={num_layers}, d_e={d_e}, heads={h}, batch_size={batch_size}).\n"
+    )
 
     # Initial zero-shot validation baseline
-    init_val_loss, init_val_acc = evaluate(model, val_data, desc="Initial Validation")
+    init_val_loss, init_val_acc = evaluate(model, val_data, batch_size=batch_size, desc="Initial Validation")
     print(f"Pre-training Validation -> Loss: {init_val_loss:.4f} | Accuracy: {init_val_acc:.2f}%\n")
 
     # Training loop
@@ -152,28 +171,37 @@ def run_pipeline(
 
         start_time = time.perf_counter()
         running_loss = 0.0
+        total_samples = 0
 
-        pbar = tqdm(train_data, desc=f"Epoch {epoch}/{epochs}")
-        for step, (text, label) in enumerate(pbar, start=1):
-            # Fit model on the individual text example
-            model.fit(text, label)
+        # Chunk training data into minibatches
+        batches = [
+            train_data[i : i + batch_size]
+            for i in range(0, len(train_data), batch_size)
+        ]
 
-            # Approximate running loss for progress reporting (without extra forward pass)
-            with torch.no_grad():
-                logits = model.forward(text)
-                target = torch.tensor([model.category_to_idx[label]], dtype=torch.long)
-                running_loss += F.cross_entropy(logits, target).item()
+        pbar = tqdm(batches, desc=f"Epoch {epoch}/{epochs}")
+        for step, batch in enumerate(pbar, start=1):
+            batch_texts = [text for text, _ in batch]
+            batch_labels = [label for _, label in batch]
 
-            if step % 20 == 0 or step == len(train_data):
-                avg_running = running_loss / step
+            # Fit model on the minibatch
+            loss = model.fit(batch_texts, batch_labels)
+            batch_loss = loss if isinstance(loss, (int, float)) else 0.0
+            running_loss += batch_loss * len(batch)
+            total_samples += len(batch)
+
+            if step % 20 == 0 or step == len(batches):
+                avg_running = running_loss / total_samples
                 pbar.set_postfix({"train_loss": f"{avg_running:.4f}"})
 
         epoch_time = time.perf_counter() - start_time
         samples_per_sec = len(train_data) / epoch_time
 
         # Epoch validation
-        val_loss, val_acc = evaluate(model, val_data, desc=f"Validating Epoch {epoch}")
-        avg_train_loss = running_loss / len(train_data)
+        val_loss, val_acc = evaluate(
+            model, val_data, batch_size=batch_size, desc=f"Validating Epoch {epoch}"
+        )
+        avg_train_loss = running_loss / total_samples if total_samples > 0 else 0.0
 
         print(
             f"\nEpoch {epoch:02d} Summary:\n"
@@ -196,6 +224,7 @@ def run_pipeline(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train Classifier on the SST-2 dataset.")
     parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs.")
+    parser.add_argument("--batch-size", type=int, default=32, help="Minibatch size for training and evaluation.")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate.")
     parser.add_argument(
         "--max-train-samples",
@@ -218,6 +247,7 @@ def main() -> None:
     run_pipeline(
         epochs=args.epochs,
         lr=args.lr,
+        batch_size=args.batch_size,
         max_train_samples=args.max_train_samples,
         max_val_samples=args.max_val_samples,
         num_layers=args.num_layers,
