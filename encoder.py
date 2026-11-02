@@ -18,10 +18,19 @@ class EncoderLayer(nn.Module):
         """
         super().__init__()
         self.multi_head = MultiHeadAttention(d_e, d_k, d_v, h)
+        self.layer_norm1 = nn.LayerNorm(d_e)
+        self.layer_norm2 = nn.LayerNorm(d_e)
+        self.dropout1 = nn.Dropout(p=0.1)
+        self.dropout2 = nn.Dropout(p=0.1)
         self.FFN = nn.Sequential(
             nn.Linear(d_e, d_ff),
             nn.ReLU(),
             nn.Linear(d_ff, d_e))
+        # z tego co wiem, nn.Linear używa inicjalizacji wag He (He et al. 2015) w wersji uniform
+        # można też spróbować normal
+        # na przykład:
+        # nn.init.kaiming_normal_(self.FFN[0].weight, nonlinearity='relu')
+
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:  # Compute multi-head attention and project: (seq_len, h * d_v) -> (seq_len, d_e).
         """Pass input through the encoder layer.
@@ -32,14 +41,16 @@ class EncoderLayer(nn.Module):
         Returns:
             FloatTensor of shape (seq_len, d_e).
         """
-        m_h = self.multi_head(x) + x
-        # tutaj jeszcze layerNorm (później)
-        
+
+        # dropout MHA + add + norm
+        m_h = self.multi_head(x)
+        m_h = self.dropout1(m_h)
+        m_h = self.layer_norm1(m_h + x)
+
+        # dropout FFN + add + Norm
         y = self.FFN(m_h)
-        
-        # połączenie rezydualne
-        # tutaj jeszcze layerNorm (później)
-        y = y + m_h
+        y = self.dropout2(y)
+        y = self.layer_norm2(y + m_h)
 
         return y
 
