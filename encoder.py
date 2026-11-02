@@ -84,12 +84,13 @@ class Encoder(nn.Module):  # Stack of N identical EncoderLayers.
         Returns:
             FloatTensor of shape (seq_len, d_e).
         """
-        mask.masked_fill_(mask == 0.0, -float('inf'))
-        mask.masked_fill_(mask == 1.0, 0)
+        attn_mask = torch.zeros(mask.shape, dtype=x.dtype, device=x.device)
+        attn_mask = attn_mask.masked_fill(~mask.bool(), float("-inf"))
+        attn_mask = attn_mask.unsqueeze(1) # (batch_size, 1, seq_len)
 
-        y  = self.encoder_layers[0](x,mask)
+        y  = self.encoder_layers[0](x,attn_mask)
         for i in range(len(self.encoder_layers)-1):
-            y = self.encoder_layers[i+1](x, mask)
+            y = self.encoder_layers[i+1](y, attn_mask)
         return y
 
 

@@ -94,12 +94,15 @@ class Classifier(nn.Module):
 
         return logits
 
-    def fit(self, x: str | list[str], y: Category | list[Category] | torch.Tensor) -> None:
+    def fit(self, x: str | list[str], y: Category | list[Category] | torch.Tensor) -> float:
         """Fit the model on a single labelled example or a batch of examples.
 
         Args:
             x: Raw input text or a list of texts.
             y: Target category label or list of labels or tensor of target class indices.
+
+        Returns:
+            The scalar cross-entropy loss value.
         """
         self.train() # set to training mode
         self.optimizer.zero_grad() # zero out the accumulated gradient from previous step
@@ -123,6 +126,7 @@ class Classifier(nn.Module):
         loss = F.cross_entropy(logits, target)
         loss.backward()
         self.optimizer.step()
+        return loss.item()
 
     def predict(self, x: str | list[str]) -> Category | list[Category]:
         """Predict the category label of input text or a batch of texts.

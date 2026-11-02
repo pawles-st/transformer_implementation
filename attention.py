@@ -34,7 +34,7 @@ class AttentionHead(nn.Module):
         K = x@self.Wk        
         V = x@self.Wv        
 
-        return torch.softmax(Q@torch.transpose(K,1,2)*(self.d_k**(-0.5)+mask), dim=2)@V
+        return torch.softmax(Q@torch.transpose(K,1,2)*(self.d_k**(-0.5)) + mask, dim=2)@V
 
 
 class MultiHeadAttention(nn.Module):
