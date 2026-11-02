@@ -33,7 +33,7 @@ class AttentionHead(nn.Module):
         K = x@self.Wk        
         V = x@self.Wv        
 
-        return torch.softmax(Q@torch.transpose(K,0,1)*(self.d_k**(-0.5)), dim=1)@V
+        return torch.softmax(Q@torch.transpose(K,1,2)*(self.d_k**(-0.5)), dim=2)@V
 
 
 class MultiHeadAttention(nn.Module):
@@ -62,7 +62,7 @@ class MultiHeadAttention(nn.Module):
             FloatTensor of shape (seq_len, d_e).
         """
         attention = [head(x) for head in self.heads]
-        multi_head = torch.cat(attention, dim=1) 
+        multi_head = torch.cat(attention, dim=2) 
 
         multi_head = multi_head@self.WO
         return multi_head
