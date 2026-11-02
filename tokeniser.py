@@ -55,40 +55,61 @@ class Tokeniser:
         """
         return len(self.tokenizer)
 
-    def encode(self, text: str) -> torch.Tensor:
+    def encode(self, text: str | list[str]) -> torch.Tensor:
         """
-        Convert text into a one-dimensional tensor of token IDs.
+        Convert text or a batch of texts into token IDs.
 
         The pretrained tokenizer splits the text into tokens and maps
         them to integer IDs. The end-of-sequence token is appended
         to mark the end of the input sequence.
 
+        If a list of strings is provided, shorter sequences are padded
+        with `pad_id` to match the longest sequence in the batch.
+
         Args:
-            text: Text to tokenize.
+            text: A single string or a list of strings to tokenize.
 
         Returns:
-            torch.Tensor: One-dimensional tensor of type torch.long
-            containing token IDs, including the EOS token.
+            torch.Tensor: Tensor of type torch.long containing token IDs.
+            Shape is (seq_len,) if a single string is provided, or
+            (batch_size, max_seq_len) if a list of strings is provided.
         """
-        token_ids = self.tokenizer.encode(text, add_special_tokens=False)
-        token_ids.append(self.eos_id)
+        is_single = isinstance(text, str)
+        texts = [text] if is_single else text
 
-        return torch.tensor(token_ids, dtype=torch.long)
+        sequences: list[torch.Tensor] = []
+        for t in texts:
+            token_ids = self.tokenizer.encode(t, add_special_tokens=False)
+            token_ids.append(self.eos_id)
+            sequences.append(torch.tensor(token_ids, dtype=torch.long))
 
-    def decode(self, token_ids: torch.Tensor) -> str:
+        if is_single:
+            return sequences[0]
+
+        return torch.nn.utils.rnn.pad_sequence(
+            sequences, batch_first=True, padding_value=self.pad_id
+        )
+
+    def decode(self, token_ids: torch.Tensor) -> str | list[str]:
         """
-        Convert a one-dimensional tensor of token IDs into text.
+        Convert token IDs into text.
 
         Special tokens, such as EOS and padding, are omitted
         from the decoded text.
 
         Args:
-            token_ids (torch.Tensor): One-dimensional tensor
-                containing token IDs.
+            token_ids (torch.Tensor): 1D tensor (seq_len,) or 2D tensor
+                (batch_size, seq_len) containing token IDs.
 
         Returns:
-            str: Text reconstructed from the token IDs.
+            str | list[str]: Reconstructed text or list of texts.
         """
+        if token_ids.dim() == 2:
+            return [
+                self.tokenizer.decode(ids.tolist(), skip_special_tokens=True)
+                for ids in token_ids
+            ]
+
         return self.tokenizer.decode(
             token_ids.tolist(),
             skip_special_tokens=True
