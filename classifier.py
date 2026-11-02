@@ -71,10 +71,8 @@ class Classifier(nn.Module):
         Returns:
             Logits tensor of shape (batch_size, num_classes).
         """
-        # 1. Tokenize text -> (batch_size, seq_len)
-        tokens = self.tokeniser.encode(x)
-        if tokens.dim() == 1:
-            tokens = tokens.unsqueeze(0)  # Standard batch dimension: (1, seq_len)
+        # 1. Tokenize text -> (batch_size, seq_len) and attention mask
+        tokens, mask = self.tokeniser.encode(x)
 
         # 2. Embed tokens -> (batch_size, seq_len, d_e)
         embeddings = self.embedder(tokens)
@@ -82,8 +80,8 @@ class Classifier(nn.Module):
         # 3. Add positional encodings -> (batch_size, seq_len, d_e)
         pos_embeddings = self.positional_encoder(embeddings)
 
-        # 4. Pass through transformer encoder stack -> (seq_len, d_e)
-        encoded = self.encoder(pos_embeddings)
+        # 4. Pass through transformer encoder stack -> (batch_size, seq_len, d_e)
+        encoded = self.encoder(pos_embeddings, mask=mask)
 
         # 5. Global mean pooling over sequence length -> (d_e,)
         pooled = encoded.mean(dim=0)

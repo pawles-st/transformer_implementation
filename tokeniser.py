@@ -55,9 +55,9 @@ class Tokeniser:
         """
         return len(self.tokenizer)
 
-    def encode(self, text: str | list[str]) -> torch.Tensor:
+    def encode(self, text: str | list[str]) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Convert text or a batch of texts into token IDs.
+        Convert text or a batch of texts into token IDs and an attention mask.
 
         The pretrained tokenizer splits the text into tokens and maps
         them to integer IDs. The end-of-sequence token is appended
@@ -70,9 +70,11 @@ class Tokeniser:
             text: A single string or a list of strings to tokenize.
 
         Returns:
-            torch.Tensor: Tensor of type torch.long containing token IDs.
-            Shape is (seq_len,) if a single string is provided, or
-            (batch_size, max_seq_len) if a list of strings is provided.
+            tuple[torch.Tensor, torch.Tensor]:
+                - tokens: LongTensor of shape (batch_size, max_seq_len)
+                  containing token IDs.
+                - mask: BoolTensor of shape (batch_size, max_seq_len) where
+                  True indicates a valid token and False indicates a pad token.
         """
         is_single = isinstance(text, str)
         texts = [text] if is_single else text
@@ -84,11 +86,14 @@ class Tokeniser:
             sequences.append(torch.tensor(token_ids, dtype=torch.long))
 
         if is_single:
-            return sequences[0]
+            tokens = sequences[0].unsqueeze(0)
+        else:
+            tokens = torch.nn.utils.rnn.pad_sequence(
+                sequences, batch_first=True, padding_value=self.pad_id
+            )
 
-        return torch.nn.utils.rnn.pad_sequence(
-            sequences, batch_first=True, padding_value=self.pad_id
-        )
+        mask = tokens != self.pad_id
+        return tokens, mask
 
     def decode(self, token_ids: torch.Tensor) -> str | list[str]:
         """
