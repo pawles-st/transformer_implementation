@@ -26,7 +26,7 @@ class EncoderLayer(nn.Module):
             nn.Linear(d_e, d_ff),
             nn.ReLU(),
             nn.Linear(d_ff, d_e))
-        # z tego co wiem, nn.Linear używa inicjalizacji wag He (He et al. 2015) w wersji unioform
+        # z tego co wiem, nn.Linear używa inicjalizacji wag He (He et al. 2015) w wersji uniform
         # można też spróbować normal
         # na przykład:
         # nn.init.kaiming_normal_(self.FFN[0].weight, nonlinearity='relu')
@@ -42,12 +42,13 @@ class EncoderLayer(nn.Module):
             FloatTensor of shape (seq_len, d_e).
         """
 
-        # dropout + add + norm
-        m_h = self.dropout1(self.multi_head(x))
+        # dropout MHA + add + norm
+        m_h = self.multi_head(x)
+        m_h = self.dropout1(m_h)
         m_h = self.layer_norm1(m_h + x)
 
+        # dropout FFN + add + Norm
         y = self.FFN(m_h)
-        # dropout + add + Norm
         y = self.dropout2(y)
         y = self.layer_norm2(y + m_h)
 
