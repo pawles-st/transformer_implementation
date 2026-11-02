@@ -32,18 +32,17 @@ class EncoderLayer(nn.Module):
         # nn.init.kaiming_normal_(self.FFN[0].weight, nonlinearity='relu')
 
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:  # Compute multi-head attention and project: (seq_len, h * d_v) -> (seq_len, d_e).
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:  # Compute multi-head attention and project: (seq_len, h * d_v) -> (seq_len, d_e).
         """Pass input through the encoder layer.
 
         Args:
             x: FloatTensor of shape (seq_len, d_e).
-
+            mask: tensor of dim (batch size, 1, seq_len) with zeros and -inf indicating padding (-inf=<pad>)
         Returns:
             FloatTensor of shape (seq_len, d_e).
         """
-
         # dropout MHA + add + norm
-        m_h = self.multi_head(x)
+        m_h = self.multi_head(x, mask)
         m_h = self.dropout1(m_h)
         m_h = self.layer_norm1(m_h + x)
 
@@ -69,20 +68,28 @@ class Encoder(nn.Module):  # Stack of N identical EncoderLayers.
             h: Number of attention heads.
         """
         super().__init__()
-        self.encoder_layers = nn.Sequential(EncoderLayer(d_e, d_k, d_v, d_ff, h))
-        for _ in range(num_layers-1):
-            self.encoder_layers.append(EncoderLayer(d_e, d_k, d_v, d_ff, h))
+        # self.encoder_layers = nn.Sequential(EncoderLayer(d_e, d_k, d_v, d_ff, h))
+        # for _ in range(num_layers-1):
+        #   self.encoder_layers.append(EncoderLayer(d_e, d_k, d_v, d_ff, h))
+
+        self.encoder_layers = nn.ModuleList([EncoderLayer(d_e, d_k, d_v, d_ff, h) for _ in range(num_layers)])
 
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """Pass input through each of the encoder layers.
 
         Args:
             x: FloatTensor of shape (seq_len, d_e).
-
+            mask: tensor of dim (batch size, 1, seq_len) with zeros and ones indicating padding (0=<pad>)
         Returns:
             FloatTensor of shape (seq_len, d_e).
         """
-        return self.encoder_layers(x)
+        mask.masked_fill_(mask == 0.0, -float('inf'))
+        mask.masked_fill_(mask == 1.0, 0)
+
+        y  = self.encoder_layers[0](x,mask)
+        for i in range(len(self.encoder_layers)-1):
+            y = self.encoder_layers[i+1](x, mask)
+        return y
 
 
