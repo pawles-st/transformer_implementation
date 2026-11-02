@@ -14,9 +14,13 @@ class AttentionHead(nn.Module):
         """
         super().__init__()
         self.d_k = d_k
-        self.Wk = nn.Parameter(torch.randn(d_e, d_k))
-        self.Wq = nn.Parameter(torch.randn(d_e, d_k))
-        self.Wv = nn.Parameter(torch.randn(d_e, d_v))
+        self.Wk = nn.Parameter(nn.init.xavier_uniform_(torch.empty(d_e, d_k)))
+        self.Wq = nn.Parameter(nn.init.xavier_uniform_(torch.empty(d_e, d_k)))
+        self.Wv = nn.Parameter(nn.init.xavier_uniform_(torch.empty(d_e, d_v)))
+        # w internecie przeczytałem, że inicjalizacja xavier (Glorot, Bengio 2010) była w "Attention is all you need"
+        # w samym artykule nie ma nic o inicjalizacji wag w macierzach uwagi Wk, Wq, Wv :(
+        # w środku można też dać nn.init.normal_(..., mean=0, std=0.02)
+        # można sprawdzić co lepiej działa 
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -60,7 +64,5 @@ class MultiHeadAttention(nn.Module):
         attention = [head(x) for head in self.heads]
         multi_head = torch.cat(attention, dim=1) 
 
-        # połączenie residualne
-        # tutaj jeszcze layerNorm (później)
         multi_head = multi_head@self.WO
         return multi_head
