@@ -8,6 +8,22 @@ from positional_encoder import PositionalEncoder
 from encoder import Encoder
 from category import Category
 
+class FitResult(float):
+    """Float representing loss, with .loss, .correct, and unpackability as (loss, correct)."""
+
+    loss: float
+    correct: int
+
+    def __new__(cls, loss: float, correct: int):
+        obj = super().__new__(cls, loss)
+        obj.loss = loss
+        obj.correct = correct
+        return obj
+
+    def __iter__(self):
+        yield self.loss
+        yield self.correct
+
 # Main module of the project. The class tree is:
 #
 # Classifier
@@ -31,6 +47,7 @@ class Classifier(nn.Module):
         d_ff: int,
         h: int,
         lr: float = 1e-4,
+        weight_decay: float = 0.01,
     ) -> None:
         """Initialise the classifier.
 
@@ -42,6 +59,7 @@ class Classifier(nn.Module):
             d_ff: Inner hidden dimension of feed-forward network.
             h: Number of attention heads.
             lr: Learning rate for the internal optimizer.
+            weight_decay: Weight decay (L2 penalty) for AdamW.
         """
         super().__init__()
 
@@ -59,8 +77,8 @@ class Classifier(nn.Module):
         # Classification head: reduces pooled vector (d_e) to class logits (num_classes)
         self.head = nn.Linear(d_e, num_classes)
 
-        # Optimizer for single-example fit() calls
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
+        # Optimizer with AdamW and weight decay
+        self.optimizer = torch.optim.AdamW(self.parameters(), lr=lr, weight_decay=weight_decay)
 
     def forward(self, x: str | list[str]) -> torch.Tensor:
         """Pass raw text input through the entire transformer classifier.
@@ -71,7 +89,7 @@ class Classifier(nn.Module):
         Returns:
             Logits tensor of shape (batch_size, num_classes).
         """
-        # 1. Tokenize text -> (batch_size, seq_len) and attention mask
+        # 1. Tokenize text -> (batch_size, seq_len) text + attention mask
         tokens, mask = self.tokeniser.encode(x)
 
         # 2. Embed tokens -> (batch_size, seq_len, d_e)
@@ -84,17 +102,17 @@ class Classifier(nn.Module):
         encoded = self.encoder(pos_embeddings, mask=mask)
 
         # 5. Masked global mean pooling over sequence length (dim=1) -> (batch_size, d_e)
-        mask_expanded = mask.unsqueeze(-1).to(dtype=encoded.dtype)
-        sum_embeddings = (encoded * mask_expanded).sum(dim=1)
-        token_counts = mask_expanded.sum(dim=1).clamp(min=1.0)
-        pooled = sum_embeddings / token_counts
+        mask_expanded = mask.unsqueeze(-1).to(dtype=encoded.dtype) # add last dim to mask -> (batch_size, seq_len, 1)
+        sum_embeddings = (encoded * mask_expanded).sum(dim=1) # zero out the <pad> coordinates for each text (broadcasted over d_e features)
+        token_counts = mask_expanded.sum(dim=1).clamp(min=1.0) # count the number of non-padded tokens for each text (broadcasted over d_e features)
+        pooled = sum_embeddings / token_counts # take the mean
 
         # 6. Linear head -> (batch_size, num_classes)
         logits = self.head(pooled)
 
         return logits
 
-    def fit(self, x: str | list[str], y: Category | list[Category] | torch.Tensor) -> float:
+    def fit(self, x: str | list[str], y: Category | list[Category] | torch.Tensor) -> FitResult:
         """Fit the model on a single labelled example or a batch of examples.
 
         Args:
@@ -102,7 +120,7 @@ class Classifier(nn.Module):
             y: Target category label or list of labels or tensor of target class indices.
 
         Returns:
-            The scalar cross-entropy loss value.
+            FitResult (loss float, also unpackable as (loss, correct_count)).
         """
         self.train() # set to training mode
         self.optimizer.zero_grad() # zero out the accumulated gradient from previous step
@@ -126,7 +144,10 @@ class Classifier(nn.Module):
         loss = F.cross_entropy(logits, target)
         loss.backward()
         self.optimizer.step()
-        return loss.item()
+
+        pred_indices = torch.argmax(logits.detach(), dim=1)
+        num_correct = int((pred_indices == target).sum().item())
+        return FitResult(loss.item(), num_correct)
 
     def predict(self, x: str | list[str]) -> Category | list[Category]:
         """Predict the category label of input text or a batch of texts.
