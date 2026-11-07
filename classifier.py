@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from tokeniser import BPETokeniser, GPT2Tokeniser, Tokeniser
+from tokeniser import BPETokeniser, GPT2Tokeniser
 from embedder import Embedder
 from positional_encoder import PositionalEncoder
 from encoder import Encoder

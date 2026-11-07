@@ -82,6 +82,7 @@ def run_pipeline(
     d_v: int = 16,
     d_ff: int = 128,
     h: int = 4,
+    vocab_size: int = 3000,
 ) -> Classifier:
     """Run full SST-2 training and evaluation pipeline."""
     print("\nLoading SST-2 datasets...")
