@@ -223,9 +223,9 @@ def run_pipeline(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train Classifier on the SST-2 dataset.")
-    parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs.")
+    parser.add_argument("--epochs", type=int, default=6, help="Number of training epochs.")
     parser.add_argument("--batch-size", type=int, default=32, help="Minibatch size for training and evaluation.")
-    parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate.")
+    parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")
     parser.add_argument("--weight-decay", type=float, default=0.01, help="AdamW weight decay penalty.")
     parser.add_argument(
         "--max-train-samples",
