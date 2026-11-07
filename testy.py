@@ -4,7 +4,7 @@ import sys
 from encoder import Encoder
 import timeit
 from classifier import Classifier
-from dataset_reader import load_dataset
+from dataset_loader import load_reviews
 
 def show_param(mod):
     for name, param in mod.named_parameters():
@@ -35,7 +35,7 @@ if __name__=="__main__":
     show_param(model)    
 
     # przykładowe dane 
-    dataset = load_dataset()
+    dataset = load_reviews()
     print(f"Loaded {len(dataset)} examples from dataset.")
     text, label = dataset[0]
     print(text)

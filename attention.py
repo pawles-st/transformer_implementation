@@ -22,18 +22,19 @@ class AttentionHead(nn.Module):
         # w środku można też dać nn.init.normal_(..., mean=0, std=0.02)
         # można sprawdzić co lepiej działa 
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """
         Args:
             x: FloatTensor of shape (seq_len, d_e).
+            mask: tensor of dim (batch size, 1, seq_len) with zeros and -inf indicating padding
         Returns:
-            FloatTensor of shape (seq_len, d_v).
+            FloatTensor of shape (batch_size, seq_len, d_v).
         """
         Q = x@self.Wq        
         K = x@self.Wk        
         V = x@self.Wv        
 
-        return torch.softmax(Q@torch.transpose(K,0,1)*(self.d_k**(-0.5)), dim=1)@V
+        return torch.softmax(Q@torch.transpose(K,1,2)*(self.d_k**(-0.5)) + mask, dim=2)@V
 
 
 class MultiHeadAttention(nn.Module):
@@ -52,17 +53,17 @@ class MultiHeadAttention(nn.Module):
         self.heads = nn.ModuleList([AttentionHead(d_e, d_k, d_v) for _ in range(h)])
         self.WO = nn.Parameter(torch.rand(d_v*h, d_e))
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor: # Compute multi-head attention and project: (seq_len, h * d_v) -> (seq_len, d_e).
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor: # Compute multi-head attention and project: (seq_len, h * d_v) -> (seq_len, d_e).
         """Compute multi-head attention over input representations.
 
         Args:
-            x: FloatTensor of shape (seq_len, d_e).
-
+            x: FloatTensor of shape (batch_size, seq_len, d_e).
+            mask: tensor of dim (batch size, 1, seq_len) with zeros and -inf indicating padding (-inf=<pad>)
         Returns:
-            FloatTensor of shape (seq_len, d_e).
+            FloatTensor of shape (batch_size, seq_len, d_e).
         """
-        attention = [head(x) for head in self.heads]
-        multi_head = torch.cat(attention, dim=1) 
+        attention = [head(x, mask) for head in self.heads]
+        multi_head = torch.cat(attention, dim=2) 
 
         multi_head = multi_head@self.WO
         return multi_head

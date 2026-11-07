@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 from category import Category
 from classifier import Classifier
-from dataset_reader import load_dataset
+from dataset_loader import load_reviews
 
 
 def compute_dataset_loss(model: Classifier, dataset: list[tuple[str, Category]]) -> float:
@@ -33,7 +33,7 @@ def test_model_learns() -> None:
     torch.manual_seed(42)
 
     # Use a small subset of reviews for fast, deterministic learning verification
-    full_dataset = load_dataset()
+    full_dataset = load_reviews()
     toy_data = full_dataset[:6]  # 3 positive, 3 negative examples
 
     # Instantiate the classifier with small dimensions for fast testing
@@ -56,7 +56,7 @@ def test_model_learns() -> None:
     print(f"\nInitial State -> Loss: {initial_loss:.4f} | Accuracy: {initial_acc:.1f}%")
 
     # Train for a few epochs on the toy subset
-    epochs = 25
+    epochs = 10
     for epoch in range(1, epochs + 1):
         for text, label in toy_data:
             model.fit(text, label)
