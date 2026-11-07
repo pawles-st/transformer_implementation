@@ -8,21 +8,6 @@ from positional_encoder import PositionalEncoder
 from encoder import Encoder
 from category import Category
 
-class FitResult(float):
-    """Float representing loss, with .loss, .correct, and unpackability as (loss, correct)."""
-
-    loss: float
-    correct: int
-
-    def __new__(cls, loss: float, correct: int):
-        obj = super().__new__(cls, loss)
-        obj.loss = loss
-        obj.correct = correct
-        return obj
-
-    def __iter__(self):
-        yield self.loss
-        yield self.correct
 
 # Main module of the project. The class tree is:
 #
@@ -46,7 +31,7 @@ class Classifier(nn.Module):
         d_v: int,
         d_ff: int,
         h: int,
-        lr: float = 1e-4,
+        lr: float = 1e-3,
         weight_decay: float = 0.01,
     ) -> None:
         """Initialise the classifier.
@@ -112,7 +97,7 @@ class Classifier(nn.Module):
 
         return logits
 
-    def fit(self, x: str | list[str], y: Category | list[Category] | torch.Tensor) -> FitResult:
+    def fit(self, x: str | list[str], y: Category | list[Category] | torch.Tensor) -> tuple[float, int]:
         """Fit the model on a single labelled example or a batch of examples.
 
         Args:
@@ -120,7 +105,7 @@ class Classifier(nn.Module):
             y: Target category label or list of labels or tensor of target class indices.
 
         Returns:
-            FitResult (loss float, also unpackable as (loss, correct_count)).
+            Tuple of (loss, correct_count).
         """
         self.train() # set to training mode
         self.optimizer.zero_grad() # zero out the accumulated gradient from previous step
@@ -128,17 +113,12 @@ class Classifier(nn.Module):
         logits = self.forward(x)
 
         # Convert y to target tensor of shape (batch_size,)
-        if isinstance(y, Category):
-            labels = [self.category_to_idx[y]]
-        elif isinstance(y, torch.Tensor):
-            labels = y
+        if isinstance(y, torch.Tensor):
+            target = y.to(device=logits.device, dtype=torch.long)
+        elif isinstance(y, Category):
+            target = torch.tensor([self.category_to_idx[y]], dtype=torch.long, device=logits.device)
         else: # list[Category]
-            labels = [self.category_to_idx[cat] for cat in y]
-
-        if not isinstance(labels, torch.Tensor):
-            target = torch.tensor(labels, dtype=torch.long, device=logits.device)
-        else:
-            target = labels.to(device=logits.device, dtype=torch.long)
+            target = torch.tensor([self.category_to_idx[cat] for cat in y], dtype=torch.long, device=logits.device)
 
         # Compute loss, backpropagate and optimize
         loss = F.cross_entropy(logits, target)
@@ -147,7 +127,7 @@ class Classifier(nn.Module):
 
         pred_indices = torch.argmax(logits.detach(), dim=1)
         num_correct = int((pred_indices == target).sum().item())
-        return FitResult(loss.item(), num_correct)
+        return loss.item(), num_correct
 
     def predict(self, x: str | list[str]) -> Category | list[Category]:
         """Predict the category label of input text or a batch of texts.

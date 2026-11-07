@@ -5,12 +5,8 @@ Trains the Classifier model on minibatches using its native fit(texts, labels) i
 
 import argparse
 import copy
-import csv
-import io
 import random
 import time
-import urllib.request
-import zipfile
 from pathlib import Path
 
 import torch
@@ -19,56 +15,9 @@ from tqdm import tqdm
 
 from category import Category
 from classifier import Classifier
+from dataset_loader import load_sst2
 
-SST2_URL = "https://dl.fbaipublicfiles.com/glue/data/SST-2.zip"
-DEFAULT_DATA_DIR = Path(__file__).parent / "data" / "SST-2"
-
-
-def ensure_sst2_dataset(data_dir: Path = DEFAULT_DATA_DIR) -> None:
-    """Download and extract SST-2 dataset if not already present."""
-    if (data_dir / "train.tsv").exists() and (data_dir / "dev.tsv").exists():
-        return
-
-    data_dir.mkdir(parents=True, exist_ok=True)
-    print(f"SST-2 dataset not found at {data_dir}. Downloading from {SST2_URL}...")
-    with urllib.request.urlopen(SST2_URL) as response:
-        archive_bytes = response.read()
-
-    with zipfile.ZipFile(io.BytesIO(archive_bytes)) as z:
-        # Extract files into the parent 'data' directory
-        z.extractall(data_dir.parent)
-
-    print(f"Dataset successfully extracted to {data_dir}.")
-
-
-def load_sst2_split(file_path: Path, max_samples: int | None = None) -> list[tuple[str, Category]]:
-    """Load a TSV split of the SST-2 dataset into (sentence, Category) tuples.
-
-    Args:
-        file_path: Path to the TSV file (e.g., train.tsv or dev.tsv).
-        max_samples: Optional limit on the number of samples to load.
-
-    Returns:
-        List of (sentence_text, Category) tuples.
-    """
-    examples: list[tuple[str, Category]] = []
-    label_map = {
-        "0": Category.NEGATIVE,
-        "1": Category.POSITIVE,
-    }
-
-    with open(file_path, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f, delimiter="\t")
-        for row in reader:
-            sentence = row["sentence"].strip()
-            label_str = row["label"].strip()
-            if label_str in label_map:
-                examples.append((sentence, label_map[label_str]))
-            if max_samples is not None and len(examples) >= max_samples:
-                break
-
-    return examples
-
+CHECKPOINT_PATH = Path(__file__).parent / "data" / "SST-2" / "best_model.pt"
 
 def evaluate(
     model: Classifier,
@@ -121,8 +70,8 @@ def evaluate(
 
 
 def run_pipeline(
-    epochs: int = 3,
-    lr: float = 1e-4,
+    epochs: int = 6,
+    lr: float = 1e-3,
     weight_decay: float = 0.01,
     batch_size: int = 32,
     max_train_samples: int | None = None,
@@ -133,14 +82,13 @@ def run_pipeline(
     d_v: int = 16,
     d_ff: int = 128,
     h: int = 4,
-    data_dir: Path = DEFAULT_DATA_DIR,
 ) -> Classifier:
     """Run full SST-2 training and evaluation pipeline."""
-    ensure_sst2_dataset(data_dir)
-
-    print(f"\nLoading SST-2 splits from: {data_dir}")
-    train_data = load_sst2_split(data_dir / "train.tsv", max_samples=max_train_samples)
-    val_data = load_sst2_split(data_dir / "dev.tsv", max_samples=max_val_samples)
+    print("\nLoading SST-2 datasets...")
+    train_data, val_data = load_sst2(
+        max_train_samples=max_train_samples,
+        max_val_samples=max_val_samples,
+    )
 
     print(f"Loaded {len(train_data)} training examples.")
     print(f"Loaded {len(val_data)} validation examples.")
@@ -180,7 +128,7 @@ def run_pipeline(
     best_val_loss = float("inf")
     best_epoch = 0
     best_state_dict: dict[str, torch.Tensor] | None = None
-    best_checkpoint_path = data_dir / "best_model.pt"
+    best_checkpoint_path = CHECKPOINT_PATH
 
     # Training loop
     for epoch in range(1, epochs + 1):
