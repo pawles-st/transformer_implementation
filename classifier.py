@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from tokeniser import Tokeniser
+from tokeniser import BPETokeniser, GPT2Tokeniser, Tokeniser
 from embedder import Embedder
 from positional_encoder import PositionalEncoder
 from encoder import Encoder
@@ -33,6 +33,8 @@ class Classifier(nn.Module):
         h: int,
         lr: float = 1e-3,
         weight_decay: float = 0.01,
+        tokeniser: BPETokeniser | GPT2Tokeniser | None = None,
+        vocab_size: int = 3000,
     ) -> None:
         """Initialise the classifier.
 
@@ -45,6 +47,8 @@ class Classifier(nn.Module):
             h: Number of attention heads.
             lr: Learning rate for the internal optimizer.
             weight_decay: Weight decay (L2 penalty) for AdamW.
+            tokeniser: Tokeniser instance to use (defaults to BPETokeniser).
+            vocab_size: Vocabulary size when using default BPETokeniser.
         """
         super().__init__()
 
@@ -54,7 +58,7 @@ class Classifier(nn.Module):
         num_classes = len(self.categories)
 
         # Core pipeline components
-        self.tokeniser = Tokeniser()
+        self.tokeniser = tokeniser if tokeniser is not None else BPETokeniser(vocab_size=vocab_size)
         self.embedder = Embedder(d_e, self.tokeniser.vocab_size, padding_idx=self.tokeniser.pad_id)
         self.positional_encoder = PositionalEncoder(d_e)
         self.encoder = Encoder(num_layers, d_e, d_k, d_v, d_ff, h)
