@@ -103,6 +103,7 @@ def run_pipeline(
         h=h,
         lr=lr,
         weight_decay=weight_decay,
+        vocab_size=vocab_size,
     )
 
     # Cosine annealing learning rate scheduler over training epochs
@@ -242,6 +243,7 @@ def main() -> None:
     parser.add_argument("--num-layers", type=int, default=2, help="Number of encoder layers.")
     parser.add_argument("--d-e", type=int, default=64, help="Embedding dimension.")
     parser.add_argument("--heads", type=int, default=4, help="Number of attention heads.")
+    parser.add_argument("--vocab-size", type=int, default=3000, help="Vocabulary size for BPETokeniser.")
 
     args = parser.parse_args()
 
@@ -255,6 +257,7 @@ def main() -> None:
         num_layers=args.num_layers,
         d_e=args.d_e,
         h=args.heads,
+        vocab_size=args.vocab_size,
     )
 
 
