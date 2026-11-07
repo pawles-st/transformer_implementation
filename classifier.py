@@ -35,6 +35,7 @@ class Classifier(nn.Module):
         weight_decay: float = 0.01,
         tokeniser: BPETokeniser | GPT2Tokeniser | None = None,
         vocab_size: int = 3000,
+        pooling: str = "mean_max",
     ) -> None:
         """Initialise the classifier.
 
@@ -49,6 +50,7 @@ class Classifier(nn.Module):
             weight_decay: Weight decay (L2 penalty) for AdamW.
             tokeniser: Tokeniser instance to use (defaults to BPETokeniser).
             vocab_size: Vocabulary size when using default BPETokeniser.
+            pooling: Pooling mode: "mean_max", "max", or "mean".
         """
         super().__init__()
 
@@ -56,6 +58,7 @@ class Classifier(nn.Module):
         self.categories = list(Category)
         self.category_to_idx = {cat: i for i, cat in enumerate(self.categories)}
         num_classes = len(self.categories)
+        self.pooling = pooling
 
         # Core pipeline components
         self.tokeniser = tokeniser if tokeniser is not None else BPETokeniser(vocab_size=vocab_size)
@@ -63,8 +66,9 @@ class Classifier(nn.Module):
         self.positional_encoder = PositionalEncoder(d_e)
         self.encoder = Encoder(num_layers, d_e, d_k, d_v, d_ff, h)
 
-        # Classification head: reduces pooled vector (d_e) to class logits (num_classes)
-        self.head = nn.Linear(d_e, num_classes)
+        # Classification head: input dimension depends on pooling strategy
+        head_in_dim = 2 * d_e if pooling == "mean_max" else d_e
+        self.head = nn.Linear(head_in_dim, num_classes)
 
         # Optimizer with AdamW and weight decay
         self.optimizer = torch.optim.AdamW(self.parameters(), lr=lr, weight_decay=weight_decay)
@@ -90,11 +94,24 @@ class Classifier(nn.Module):
         # 4. Pass through transformer encoder stack -> (batch_size, seq_len, d_e)
         encoded = self.encoder(pos_embeddings, mask=mask)
 
-        # 5. Masked global mean pooling over sequence length (dim=1) -> (batch_size, d_e)
-        mask_expanded = mask.unsqueeze(-1).to(dtype=encoded.dtype) # add last dim to mask -> (batch_size, seq_len, 1)
-        sum_embeddings = (encoded * mask_expanded).sum(dim=1) # zero out the <pad> coordinates for each text (broadcasted over d_e features)
-        token_counts = mask_expanded.sum(dim=1).clamp(min=1.0) # count the number of non-padded tokens for each text (broadcasted over d_e features)
-        pooled = sum_embeddings / token_counts # take the mean
+        # 5. Pooling over sequence length (dim=1)
+        mask_expanded = mask.unsqueeze(-1)  # (batch_size, seq_len, 1)
+
+        if self.pooling in ("mean", "mean_max"):
+            sum_embeddings = (encoded * mask_expanded.to(dtype=encoded.dtype)).sum(dim=1)
+            token_counts = mask_expanded.sum(dim=1).clamp(min=1.0)
+            mean_pooled = sum_embeddings / token_counts
+
+        if self.pooling in ("max", "mean_max"):
+            masked_encoded = encoded.masked_fill(~mask_expanded, float("-inf"))
+            max_pooled = masked_encoded.max(dim=1).values
+
+        if self.pooling == "mean_max":
+            pooled = torch.cat([mean_pooled, max_pooled], dim=-1)
+        elif self.pooling == "max":
+            pooled = max_pooled
+        else:
+            pooled = mean_pooled
 
         # 6. Linear head -> (batch_size, num_classes)
         logits = self.head(pooled)
