@@ -118,6 +118,21 @@ class Classifier(nn.Module):
 
         return logits
 
+    def attention_matrix(self, x):
+        # 1. Tokenize text -> (batch_size, seq_len) text + attention mask
+        tokens, mask = self.tokeniser.encode(x)
+
+        # 2. Embed tokens -> (batch_size, seq_len, d_e)
+        embeddings = self.embedder(tokens)
+
+        # 3. Add positional encodings -> (batch_size, seq_len, d_e)
+        pos_embeddings = self.positional_encoder(embeddings)
+
+        
+        # 4. Pass through transformer encoder stack -> (batch_size, seq_len, d_e)
+        encoded = self.encoder.forward_attention_matrix(pos_embeddings, mask=mask, tokens=tokens)
+
+
     def fit(self, x: str | list[str], y: Category | list[Category] | torch.Tensor) -> tuple[float, int]:
         """Fit the model on a single labelled example or a batch of examples.
 

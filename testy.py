@@ -15,20 +15,6 @@ def show_param(mod):
 if __name__=="__main__":
 
     # ---------------------------------------
-    # test encodera
-
-    enc = Encoder(6, 512, 512, 512, 2048, 8)
-    
-    # sprawdzenie parametrów/warstw/wymiarów
-    # show_param(enc)
-
-    # sprawdzenie czy forward w encoderze działa 
-    x_test = torch.randn(16, 512)
-    print(enc(x_test))
-    print(enc(x_test).shape) 
-
-
-    # ---------------------------------------
     # test forward w klasyfikatorze
 
     model = Classifier(6, 512, 512, 512, 2048, 8)

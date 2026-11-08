@@ -53,6 +53,27 @@ class EncoderLayer(nn.Module):
 
         return y
 
+    def forward_attention_matrix(self, x: torch.Tensor, mask: torch.Tensor, tokens: torch.Tensor) -> torch.Tensor:  # Compute multi-head attention and project: (seq_len, h * d_v) -> (seq_len, d_e).
+        """Pass input through the encoder layer.
+
+        Args:
+            x: FloatTensor of shape (seq_len, d_e).
+            mask: tensor of dim (batch size, 1, seq_len) with zeros and -inf indicating padding (-inf=<pad>)
+        Returns:
+            FloatTensor of shape (seq_len, d_e).
+        """
+        # dropout MHA + add + norm
+        m_h = self.multi_head.forward_attention_matrix(x, mask, tokens)
+        m_h = self.dropout1(m_h)
+        m_h = self.layer_norm1(m_h + x)
+
+        # dropout FFN + add + Norm
+        y = self.FFN(m_h)
+        y = self.dropout2(y)
+        y = self.layer_norm2(y + m_h)
+
+        return y
+
 class Encoder(nn.Module):  # Stack of N identical EncoderLayers.
     """Encoder module in a transformer architecture composed of EncoderLayers."""
 
@@ -91,6 +112,24 @@ class Encoder(nn.Module):  # Stack of N identical EncoderLayers.
         y  = self.encoder_layers[0](x,attn_mask)
         for i in range(len(self.encoder_layers)-1):
             y = self.encoder_layers[i+1](y, attn_mask)
+        return y
+
+    def forward_attention_matrix(self, x: torch.Tensor, mask: torch.Tensor, tokens: torch.Tensor) -> torch.Tensor:
+        """Pass input through each of the encoder layers.
+
+        Args:
+            x: FloatTensor of shape (seq_len, d_e).
+            mask: tensor of dim (batch size, 1, seq_len) with zeros and ones indicating padding (0=<pad>)
+        Returns:
+            FloatTensor of shape (seq_len, d_e).
+        """
+        attn_mask = torch.zeros(mask.shape, dtype=x.dtype, device=x.device)
+        attn_mask = attn_mask.masked_fill(~mask.bool(), float("-inf"))
+        attn_mask = attn_mask.unsqueeze(1) # (batch_size, 1, seq_len)
+
+        y  = self.encoder_layers[0].forward_attention_matrix(x,attn_mask, tokens)
+        for i in range(len(self.encoder_layers)-1):
+            y = self.encoder_layers[i+1].forward_attention_matrix(y, attn_mask, tokens)
         return y
 
 

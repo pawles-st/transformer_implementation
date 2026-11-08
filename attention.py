@@ -1,5 +1,8 @@
 import torch
 import torch.nn as nn
+from matplotlib import pyplot as plt
+from tokeniser import BPETokeniser
+import os
 
 class AttentionHead(nn.Module):
     """Single attention head computing scaled dot-product attention."""
@@ -36,6 +39,33 @@ class AttentionHead(nn.Module):
 
         return torch.softmax(Q@torch.transpose(K,1,2)*(self.d_k**(-0.5)) + mask, dim=2)@V
 
+    def forward_attention_matrix(self, x: torch.Tensor, mask: torch.Tensor, tokens: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: FloatTensor of shape (seq_len, d_e).
+            mask: tensor of dim (batch size, 1, seq_len) with zeros and -inf indicating padding
+        Returns:
+            FloatTensor of shape (batch_size, seq_len, d_v).
+        """
+        Q = x@self.Wq        
+        K = x@self.Wk        
+        V = x@self.Wv        
+
+        A = torch.softmax(Q@torch.transpose(K,1,2)*(self.d_k**(-0.5)) + mask, dim=2).squeeze(0)
+        A_np = A.detach().cpu().numpy()
+        fig, ax = plt.subplots()
+        im = ax.imshow(A_np)
+        tokenizer1 = BPETokeniser()
+        tokens_str = [tokenizer1.tokenizer.id_to_token(id) for id in torch.Tensor.tolist(tokens[0])]
+        ax.set_xticks(range(len(tokens_str)), labels=tokens_str, rotation=45, rotation_mode="xtick")
+        ax.set_yticks(range(len(tokens_str)), labels=tokens_str)
+
+        i=0
+        while os.path.exists(f'obrazki/heatmap{i}.png'):
+            i += 1
+        plt.savefig(f'obrazki/heatmap{i}.png', bbox_inches='tight')
+        return torch.softmax(Q@torch.transpose(K,1,2)*(self.d_k**(-0.5)) + mask, dim=2)@V
+
 
 class MultiHeadAttention(nn.Module):
     """Multi-head attention mechanism concatenating h attention heads and projecting back to original dimension."""
@@ -63,6 +93,21 @@ class MultiHeadAttention(nn.Module):
             FloatTensor of shape (batch_size, seq_len, d_e).
         """
         attention = [head(x, mask) for head in self.heads]
+        multi_head = torch.cat(attention, dim=2) 
+
+        multi_head = multi_head@self.WO
+        return multi_head
+
+    def forward_attention_matrix(self, x: torch.Tensor, mask: torch.Tensor, tokens: torch.Tensor) -> torch.Tensor: # Compute multi-head attention and project: (seq_len, h * d_v) -> (seq_len, d_e).
+        """Compute multi-head attention over input representations.
+
+        Args:
+            x: FloatTensor of shape (batch_size, seq_len, d_e).
+            mask: tensor of dim (batch size, 1, seq_len) with zeros and -inf indicating padding (-inf=<pad>)
+        Returns:
+            FloatTensor of shape (batch_size, seq_len, d_e).
+        """
+        attention = [head.forward_attention_matrix(x, mask, tokens) for head in self.heads]
         multi_head = torch.cat(attention, dim=2) 
 
         multi_head = multi_head@self.WO
