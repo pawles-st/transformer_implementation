@@ -36,6 +36,7 @@ class Classifier(nn.Module):
         tokeniser: BPETokeniser | GPT2Tokeniser | None = None,
         vocab_size: int = 3000,
         pooling: str = "mean_max",
+        dropout: float = 0.1,
     ) -> None:
         """Initialise the classifier.
 
@@ -51,6 +52,7 @@ class Classifier(nn.Module):
             tokeniser: Tokeniser instance to use (defaults to BPETokeniser).
             vocab_size: Vocabulary size when using default BPETokeniser.
             pooling: Pooling mode: "mean_max", "max", or "mean".
+            dropout: Dropout probability for embeddings and classification head.
         """
         super().__init__()
 
@@ -59,6 +61,7 @@ class Classifier(nn.Module):
         self.category_to_idx = {cat: i for i, cat in enumerate(self.categories)}
         num_classes = len(self.categories)
         self.pooling = pooling
+        self.dropout = nn.Dropout(p=dropout)
 
         # Core pipeline components
         self.tokeniser = tokeniser if tokeniser is not None else BPETokeniser(vocab_size=vocab_size)
@@ -90,6 +93,7 @@ class Classifier(nn.Module):
 
         # 3. Add positional encodings -> (batch_size, seq_len, d_e)
         pos_embeddings = self.positional_encoder(embeddings)
+        pos_embeddings = self.dropout(pos_embeddings)
 
         # 4. Pass through transformer encoder stack -> (batch_size, seq_len, d_e)
         encoded = self.encoder(pos_embeddings, mask=mask)
@@ -113,7 +117,8 @@ class Classifier(nn.Module):
         else:
             pooled = mean_pooled
 
-        # 6. Linear head -> (batch_size, num_classes)
+        # 6. Linear head with dropout -> (batch_size, num_classes)
+        pooled = self.dropout(pooled)
         logits = self.head(pooled)
 
         return logits

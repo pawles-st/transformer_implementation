@@ -84,6 +84,7 @@ def run_pipeline(
     h: int = 4,
     vocab_size: int = 3000,
     pooling: str = "mean_max",
+    dropout: float = 0.1,
 ) -> Classifier:
     """Run full SST-2 training and evaluation pipeline."""
     print("\nLoading SST-2 datasets...")
@@ -107,6 +108,7 @@ def run_pipeline(
         weight_decay=weight_decay,
         vocab_size=vocab_size,
         pooling=pooling,
+        dropout=dropout,
     )
 
     # Cosine annealing learning rate scheduler over training epochs
@@ -248,6 +250,7 @@ def main() -> None:
     parser.add_argument("--heads", type=int, default=4, help="Number of attention heads.")
     parser.add_argument("--vocab-size", type=int, default=3000, help="Vocabulary size for BPETokeniser.")
     parser.add_argument("--pooling", type=str, default="mean_max", choices=["mean_max", "max", "mean"], help="Pooling strategy (default: mean_max).")
+    parser.add_argument("--dropout", type=float, default=0.1, help="Dropout probability (default: 0.1).")
 
     args = parser.parse_args()
 
@@ -263,6 +266,7 @@ def main() -> None:
         h=args.heads,
         vocab_size=args.vocab_size,
         pooling=args.pooling,
+        dropout=args.dropout,
     )
 
 
