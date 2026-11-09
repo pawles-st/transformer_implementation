@@ -10,7 +10,9 @@ def forward_time(batch_size: int, N: int, heads: list[int], layers: list[int], d
 	# przykładowe dane 
     train_data, val_data = load_sst2()
     batches = [train_data[i*batch_size:(i+1)*batch_size] for i in range(N)]
-
+    print(f" Rozmiar batcha = {batch_size} ")
+    print('nr_layers |  h  |  d_e  |  d_k  |   d_ff   |   czas  ')
+    print("-----------------------------------------------------")
     for l in layers:
     	for h in heads:
     		for de in d_e_list:
@@ -21,9 +23,10 @@ def forward_time(batch_size: int, N: int, heads: list[int], layers: list[int], d
     					for i in range(N):
     						text = [sentence for sentence, _ in batches[i]]
     						t += timeit.timeit(lambda: model(text), number=1)
-    					print(f'Parametry modelu: nr_layers={l}, h={h}, d_e={de}, d_k=d_q={dk}, d_ff={dff}')
-    					print(f'Średni czas batcha o rozmiarze {batch_size}: {t/N}')
-    					print("_____________________________________________________")
+    					print(f'{l:9} | {h:3} | {de:5} | {dk:5} | {dff:8} | {round(t/N, 5)}')
+    		print("        ---------------------------------------------")
+    	print("-----------------------------------------------------")
+
 
 
 if __name__=="__main__":
