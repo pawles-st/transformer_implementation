@@ -57,8 +57,9 @@ class AttentionHead(nn.Module):
         im = ax.imshow(A_np)
         tokenizer1 = BPETokeniser()
         tokens_str = [tokenizer1.tokenizer.id_to_token(id) for id in torch.Tensor.tolist(tokens[0])]
-        ax.set_xticks(range(len(tokens_str)), labels=tokens_str, rotation=45, rotation_mode="xtick")
-        ax.set_yticks(range(len(tokens_str)), labels=tokens_str)
+        tokens_str_clean = [s.replace('Ġ', '') for s in tokens_str]
+        ax.set_xticks(range(len(tokens_str_clean)), labels=tokens_str_clean, rotation=45, rotation_mode="xtick")
+        ax.set_yticks(range(len(tokens_str_clean)), labels=tokens_str_clean)
 
         i=0
         while os.path.exists(f'obrazki/heatmap{i}.png'):
