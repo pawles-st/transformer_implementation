@@ -34,6 +34,7 @@ class Classifier(nn.Module):
         lr: float = 1e-3,
         weight_decay: float = 0.01,
         tokeniser: BPETokeniser | GPT2Tokeniser | None = None,
+        tokenizer_type: str = "bpe",
         vocab_size: int = 3000,
         pooling: str = "mean_max",
         dropout: float = 0.1,
@@ -50,6 +51,7 @@ class Classifier(nn.Module):
             lr: Learning rate for the internal optimizer.
             weight_decay: Weight decay (L2 penalty) for AdamW.
             tokeniser: Tokeniser instance to use (defaults to BPETokeniser).
+            tokenizer_type: "bpe" or "gpt2" (used if tokeniser is None).
             vocab_size: Vocabulary size when using default BPETokeniser.
             pooling: Pooling mode: "mean_max", "max", or "mean".
             dropout: Dropout probability for embeddings and classification head.
@@ -64,10 +66,16 @@ class Classifier(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
 
         # Core pipeline components
-        self.tokeniser = tokeniser if tokeniser is not None else BPETokeniser(vocab_size=vocab_size)
+        if tokeniser is not None:
+            self.tokeniser = tokeniser
+        elif tokenizer_type == "gpt2":
+            self.tokeniser = GPT2Tokeniser()
+        else:
+            self.tokeniser = BPETokeniser(vocab_size=vocab_size)
+
         self.embedder = Embedder(d_e, self.tokeniser.vocab_size, padding_idx=self.tokeniser.pad_id)
         self.positional_encoder = PositionalEncoder(d_e)
-        self.encoder = Encoder(num_layers, d_e, d_k, d_v, d_ff, h)
+        self.encoder = Encoder(num_layers, d_e, d_k, d_v, d_ff, h, dropout=dropout)
 
         # Classification head: input dimension depends on pooling strategy
         head_in_dim = 2 * d_e if pooling == "mean_max" else d_e

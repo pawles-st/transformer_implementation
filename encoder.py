@@ -6,7 +6,7 @@ from attention import MultiHeadAttention
 class EncoderLayer(nn.Module):
     """Single encoder layer composed of Multi-Head Attention and Feed-Forward Network."""
 
-    def __init__(self, d_e: int, d_k: int, d_v: int, d_ff: int, h: int) -> None:
+    def __init__(self, d_e: int, d_k: int, d_v: int, d_ff: int, h: int, dropout: float = 0.1) -> None:
         """Initialise the encoder layer.
 
         Args:
@@ -15,13 +15,14 @@ class EncoderLayer(nn.Module):
             d_v: Value vector dimension.
             d_ff: Inner hidden dimension of feed-forward network.
             h: Number of attention heads.
+            dropout: Dropout probability for attention and FFN.
         """
         super().__init__()
         self.multi_head = MultiHeadAttention(d_e, d_k, d_v, h)
         self.layer_norm1 = nn.LayerNorm(d_e)
         self.layer_norm2 = nn.LayerNorm(d_e)
-        self.dropout1 = nn.Dropout(p=0.1)
-        self.dropout2 = nn.Dropout(p=0.1)
+        self.dropout1 = nn.Dropout(p=dropout)
+        self.dropout2 = nn.Dropout(p=dropout)
         self.FFN = nn.Sequential(
             nn.Linear(d_e, d_ff),
             nn.ReLU(),
@@ -56,7 +57,7 @@ class EncoderLayer(nn.Module):
 class Encoder(nn.Module):  # Stack of N identical EncoderLayers.
     """Encoder module in a transformer architecture composed of EncoderLayers."""
 
-    def __init__(self, num_layers: int, d_e: int, d_k: int, d_v: int, d_ff: int, h: int) -> None:
+    def __init__(self, num_layers: int, d_e: int, d_k: int, d_v: int, d_ff: int, h: int, dropout: float = 0.1) -> None:
         """Initialise the encoder.
 
         Args:
@@ -66,13 +67,14 @@ class Encoder(nn.Module):  # Stack of N identical EncoderLayers.
             d_v: Value vector dimension.
             d_ff: Inner hidden dimension of feed-forward network.
             h: Number of attention heads.
+            dropout: Dropout probability for encoder layers.
         """
         super().__init__()
         # self.encoder_layers = nn.Sequential(EncoderLayer(d_e, d_k, d_v, d_ff, h))
         # for _ in range(num_layers-1):
         #   self.encoder_layers.append(EncoderLayer(d_e, d_k, d_v, d_ff, h))
 
-        self.encoder_layers = nn.ModuleList([EncoderLayer(d_e, d_k, d_v, d_ff, h) for _ in range(num_layers)])
+        self.encoder_layers = nn.ModuleList([EncoderLayer(d_e, d_k, d_v, d_ff, h, dropout=dropout) for _ in range(num_layers)])
 
 
     def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
