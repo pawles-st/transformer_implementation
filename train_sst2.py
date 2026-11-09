@@ -15,12 +15,13 @@ from tqdm import tqdm
 
 from category import Category
 from classifier import Classifier
+from lstm_classifier import LSTMClassifier
 from dataset_loader import load_sst2
 
 CHECKPOINT_PATH = Path(__file__).parent / "data" / "SST-2" / "best_model.pt"
 
 def evaluate(
-    model: Classifier,
+    model: Classifier | LSTMClassifier,
     dataset: list[tuple[str, Category]],
     batch_size: int = 32,
     desc: str = "Evaluating",
@@ -71,6 +72,8 @@ def evaluate(
 
 def run_pipeline(
     epochs: int = 6,
+    model_type: str = "transformer",
+    tokenizer_type: str = "bpe",
     lr: float = 1e-3,
     weight_decay: float = 0.01,
     batch_size: int = 32,
@@ -85,8 +88,12 @@ def run_pipeline(
     vocab_size: int = 3000,
     pooling: str = "mean_max",
     dropout: float = 0.1,
-) -> Classifier:
+    seed: int = 42,
+) -> tuple[Classifier | LSTMClassifier, dict]:
     """Run full SST-2 training and evaluation pipeline."""
+    random.seed(seed)
+    torch.manual_seed(seed)
+
     print("\nLoading SST-2 datasets...")
     train_data, val_data = load_sst2(
         max_train_samples=max_train_samples,
@@ -96,20 +103,39 @@ def run_pipeline(
     print(f"Loaded {len(train_data)} training examples.")
     print(f"Loaded {len(val_data)} validation examples.")
 
+    # Validate pooling strategy
+    if model_type == "transformer" and pooling == "last":
+        raise ValueError("'last' pooling is only supported for LSTM (Transformer uses 'mean', 'max', or 'mean_max').")
+
     # Instantiate model with specified hyperparameters and AdamW
-    model = Classifier(
-        num_layers=num_layers,
-        d_e=d_e,
-        d_k=d_k,
-        d_v=d_v,
-        d_ff=d_ff,
-        h=h,
-        lr=lr,
-        weight_decay=weight_decay,
-        vocab_size=vocab_size,
-        pooling=pooling,
-        dropout=dropout,
-    )
+    if model_type == "lstm":
+        model = LSTMClassifier(
+            num_layers=num_layers,
+            d_e=d_e,
+            hidden_dim=d_e,
+            bidirectional=True,
+            lr=lr,
+            weight_decay=weight_decay,
+            tokenizer_type=tokenizer_type,
+            vocab_size=vocab_size,
+            pooling=pooling,
+            dropout=dropout,
+        )
+    else:
+        model = Classifier(
+            num_layers=num_layers,
+            d_e=d_e,
+            d_k=d_k,
+            d_v=d_v,
+            d_ff=d_ff,
+            h=h,
+            lr=lr,
+            weight_decay=weight_decay,
+            tokenizer_type=tokenizer_type,
+            vocab_size=vocab_size,
+            pooling=pooling,
+            dropout=dropout,
+        )
 
     # Cosine annealing learning rate scheduler over training epochs
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -120,8 +146,8 @@ def run_pipeline(
 
     total_params = sum(p.numel() for p in model.parameters())
     print(
-        f"Initialized Classifier with {total_params:,} parameters "
-        f"(layers={num_layers}, d_e={d_e}, heads={h}, batch_size={batch_size}, "
+        f"Initialized {type(model).__name__} with {total_params:,} parameters "
+        f"(layers={num_layers}, d_e={d_e}, batch_size={batch_size}, "
         f"lr={lr}, weight_decay={weight_decay}).\n"
     )
 
@@ -134,7 +160,8 @@ def run_pipeline(
     best_val_loss = float("inf")
     best_epoch = 0
     best_state_dict: dict[str, torch.Tensor] | None = None
-    best_checkpoint_path = CHECKPOINT_PATH
+    history: list[dict] = []
+    best_checkpoint_path = Path(__file__).parent / "data" / "SST-2" / f"best_model_{model_type}.pt"
 
     # Training loop
     for epoch in range(1, epochs + 1):
@@ -206,6 +233,18 @@ def run_pipeline(
             f"  Learning Rate:  {current_lr:.6e}\n"
             f"  Throughput:     {samples_per_sec:.1f} samples/sec ({epoch_time:.1f}s total)\n"
         )
+        history.append({
+            "epoch": epoch,
+            "train_loss": avg_train_loss,
+            "train_acc": train_acc,
+            "val_loss": val_loss,
+            "val_acc": val_acc,
+            "overfitting_gap": overfitting_gap,
+            "throughput_sps": samples_per_sec,
+            "epoch_time_s": epoch_time,
+            "learning_rate": current_lr,
+            "is_best": is_best,
+        })
 
     # Restore the best validation model checkpoint
     if best_state_dict is not None:
@@ -224,7 +263,13 @@ def run_pipeline(
         print(f"  [{'✓' if pred == actual_label else '✗'}] Text: \"{text[:70]}...\"")
         print(f"      Predicted: {pred.name} | Actual: {actual_label.name}")
 
-    return model
+    run_summary = {
+        "best_epoch": best_epoch,
+        "best_val_acc": best_val_acc,
+        "val_loss_at_best": best_val_loss,
+        "history": history,
+    }
+    return model, run_summary
 
 
 def main() -> None:
@@ -245,17 +290,22 @@ def main() -> None:
         default=None,
         help="Optional limit on number of validation samples.",
     )
-    parser.add_argument("--num-layers", type=int, default=2, help="Number of encoder layers.")
+    parser.add_argument("--model", type=str, default="transformer", choices=["transformer", "lstm"], help="Model architecture.")
+    parser.add_argument("--tokenizer", type=str, default="bpe", choices=["bpe", "gpt2"], help="Tokenizer type.")
+    parser.add_argument("--num-layers", type=int, default=2, help="Number of encoder/recurrent layers.")
     parser.add_argument("--d-e", type=int, default=64, help="Embedding dimension.")
-    parser.add_argument("--heads", type=int, default=4, help="Number of attention heads.")
+    parser.add_argument("--heads", type=int, default=4, help="Number of attention heads (transformer only).")
     parser.add_argument("--vocab-size", type=int, default=3000, help="Vocabulary size for BPETokeniser.")
-    parser.add_argument("--pooling", type=str, default="mean_max", choices=["mean_max", "max", "mean"], help="Pooling strategy (default: mean_max).")
+    parser.add_argument("--pooling", type=str, default="mean_max", choices=["mean_max", "max", "mean", "last"], help="Pooling strategy (default: mean_max; 'last' is LSTM only).")
     parser.add_argument("--dropout", type=float, default=0.1, help="Dropout probability (default: 0.1).")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility.")
 
     args = parser.parse_args()
 
     run_pipeline(
         epochs=args.epochs,
+        model_type=args.model,
+        tokenizer_type=args.tokenizer,
         lr=args.lr,
         weight_decay=args.weight_decay,
         batch_size=args.batch_size,
@@ -267,6 +317,7 @@ def main() -> None:
         vocab_size=args.vocab_size,
         pooling=args.pooling,
         dropout=args.dropout,
+        seed=args.seed,
     )
 
 
