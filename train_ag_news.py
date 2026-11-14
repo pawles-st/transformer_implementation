@@ -1,4 +1,4 @@
-"""Training and evaluation pipeline for the Stanford Sentiment Treebank (SST-2) dataset.
+"""Training and evaluation pipeline for the AG News dataset.
 
 Trains the Classifier model on minibatches using its native fit(texts, labels) interface.
 """
@@ -16,9 +16,9 @@ from tqdm import tqdm
 from category import Category
 from classifier import Classifier
 from lstm_classifier import LSTMClassifier
-from dataset_loader import load_sst2
+from dataset_loader import load_ag_news
 
-CHECKPOINT_PATH = Path(__file__).parent / "data" / "SST-2" / "best_model.pt"
+CHECKPOINT_PATH = Path(__file__).parent / "data" / "ag_news" / "best_model.pt"
 
 def evaluate(
     model: Classifier | LSTMClassifier,
@@ -90,12 +90,12 @@ def run_pipeline(
     dropout: float = 0.1,
     seed: int = 42,
 ) -> tuple[Classifier | LSTMClassifier, dict]:
-    """Run full SST-2 training and evaluation pipeline."""
+    """Run full AG News training and evaluation pipeline."""
     random.seed(seed)
     torch.manual_seed(seed)
 
-    print("\nLoading SST-2 datasets...")
-    train_data, val_data = load_sst2(
+    print("\nLoading AG News datasets...")
+    train_data, val_data = load_ag_news(
         max_train_samples=max_train_samples,
         max_val_samples=max_val_samples,
     )
@@ -161,7 +161,7 @@ def run_pipeline(
     best_epoch = 0
     best_state_dict: dict[str, torch.Tensor] | None = None
     history: list[dict] = []
-    best_checkpoint_path = Path(__file__).parent / "data" / "SST-2" / f"best_model_{model_type}.pt"
+    best_checkpoint_path = Path(__file__).parent / "data" / "ag_news" / f"best_model_{model_type}.pt"
 
     # Training loop
     for epoch in range(1, epochs + 1):
@@ -273,7 +273,7 @@ def run_pipeline(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Train Classifier on the SST-2 dataset.")
+    parser = argparse.ArgumentParser(description="Train Classifier on the AG News dataset.")
     parser.add_argument("--epochs", type=int, default=6, help="Number of training epochs.")
     parser.add_argument("--batch-size", type=int, default=32, help="Minibatch size for training and evaluation.")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")

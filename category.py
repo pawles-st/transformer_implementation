@@ -3,5 +3,7 @@
 from enum import Enum
 
 class Category(Enum):
-    POSITIVE = "positive"
-    NEGATIVE = "negative"
+    WORLD = "world"
+    SPORTS = "sports"
+    BUSINESS = "business"
+    SCI_TECH = "sci/tech"

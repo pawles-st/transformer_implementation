@@ -4,7 +4,7 @@ import sys
 from encoder import Encoder
 import timeit
 from classifier import Classifier
-from dataset_loader import load_reviews
+from dataset_loader import load_ag_news
 
 def show_param(mod):
     for name, param in mod.named_parameters():
@@ -35,9 +35,9 @@ if __name__=="__main__":
     show_param(model)    
 
     # przykładowe dane 
-    dataset = load_reviews()
-    print(f"Loaded {len(dataset)} examples from dataset.")
-    text, label = dataset[0]
+    train_data, _ = load_ag_news(max_train_samples=5)
+    print(f"Loaded {len(train_data)} examples from dataset.")
+    text, label = train_data[0]
     print(text)
 
     # test czasu forward w encoderze

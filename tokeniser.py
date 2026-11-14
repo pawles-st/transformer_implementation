@@ -149,20 +149,24 @@ class BPETokeniser:
         )
 
         if not target_path.exists():
-            self._train_from_sst2(target_path, vocab_size)
+            self._train_from_ag_news(target_path, vocab_size)
 
         self.tokenizer = HFTokenizer.from_file(str(target_path))
         self.pad_id = self.tokenizer.token_to_id("<pad>")
         self.eos_id = self.tokenizer.token_to_id("<eos>")
 
     @classmethod
-    def _train_from_sst2(cls, target_path: Path, vocab_size: int) -> None:
+    def _train_from_ag_news(cls, target_path: Path, vocab_size: int) -> None:
         import csv
-        sst2_file = Path(__file__).parent / "data" / "SST-2" / "train.tsv"
-        if not sst2_file.exists():
-            raise FileNotFoundError(f"Cannot auto-train BPE tokenizer: '{sst2_file}' not found.")
-        with open(sst2_file, "r", encoding="utf-8") as f:
-            texts = [row["sentence"] for row in csv.DictReader(f, delimiter="\t")]
+        from dataset_loader import _ensure_ag_news, AG_NEWS_DIR
+
+        _ensure_ag_news()
+        ag_file = AG_NEWS_DIR / "train.csv"
+        if not ag_file.exists():
+            raise FileNotFoundError(f"Cannot auto-train BPE tokenizer: '{ag_file}' not found.")
+        with open(ag_file, "r", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            texts = [f"{row[1]} {row[2]}".strip() for row in reader if len(row) >= 3]
         cls._train_bpe(texts, vocab_size, min_frequency=2, save_path=target_path)
 
     @staticmethod
