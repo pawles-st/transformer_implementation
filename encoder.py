@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from attention import AttentionHead
 from attention import MultiHeadAttention
+from attention import MultiHeadAttentionParallel
 
 class EncoderLayer(nn.Module):
     """Single encoder layer composed of Multi-Head Attention and Feed-Forward Network."""
@@ -19,6 +20,7 @@ class EncoderLayer(nn.Module):
         """
         super().__init__()
         self.multi_head = MultiHeadAttention(d_e, d_k, d_v, h)
+        # self.multi_head = MultiHeadAttentionParallel(d_e, d_k, d_v, h)
         self.layer_norm1 = nn.LayerNorm(d_e)
         self.layer_norm2 = nn.LayerNorm(d_e)
         self.dropout1 = nn.Dropout(p=dropout)
@@ -88,7 +90,11 @@ class Encoder(nn.Module):  # Stack of N identical EncoderLayers.
         """
         attn_mask = torch.zeros(mask.shape, dtype=x.dtype, device=x.device)
         attn_mask = attn_mask.masked_fill(~mask.bool(), float("-inf"))
+        
         attn_mask = attn_mask.unsqueeze(1) # (batch_size, 1, seq_len)
+        
+        # attn_mask = attn_mask.unsqueeze(1).unsqueeze(2) # (batch_size, 1, 1, seq_len)
+        # jeśli korzystamy z klasy MultiHeadAttentionParallel musimy podać mask innego wymiaru 
 
         y  = self.encoder_layers[0](x,attn_mask)
         for i in range(len(self.encoder_layers)-1):
