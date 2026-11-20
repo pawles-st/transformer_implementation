@@ -12,6 +12,7 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 from tqdm import tqdm
+from torch.optim.lr_scheduler import LambdaLR
 
 from category import Category
 from classifier import Classifier
@@ -74,6 +75,7 @@ def run_pipeline(
     epochs: int = 6,
     model_type: str = "transformer",
     tokenizer_type: str = "bpe",
+    scheduler_type: str = "attention-paper",
     lr: float = 1e-3,
     weight_decay: float = 0.01,
     batch_size: int = 32,
@@ -137,12 +139,31 @@ def run_pipeline(
             dropout=dropout,
         )
 
-    # Cosine annealing learning rate scheduler over training epochs
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        model.optimizer,
-        T_max=epochs,
-        eta_min=lr * 0.1,
-    )
+    if scheduler_type=="cosine":
+        # Cosine annealing learning rate scheduler over training epochs
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            model.optimizer,
+            T_max=epochs,
+            eta_min=lr * 0.1,
+        )
+
+    if scheduler_type=="attention-paper":
+        # tutaj implementujemy optimizer tak, jak w "Attention is all you need"
+        model.optimizer = torch.optim.Adam(
+        model.parameters(),
+        lr=1.0,  # LambdaLR z torch.optim.lr_scheduler będzie to zmieniać 
+        betas=(0.9, 0.98),
+        eps=1e-9,
+        )
+
+        warmup_steps = 4000 # w artykule "Attention ..." ten parametr wynosi 4000
+        def transformer_lr_lambda(step_idx: int) -> float:
+            # ta funkcja liczy jakie powinno być lr w następnym kroku
+            # przekazujemy ją do obiektu LambdaLR i on aktualizuje
+            step = step_idx + 1
+            return (d_e ** -0.5) * min(step ** -0.5, step * (warmup_steps ** -1.5))
+
+        scheduler = LambdaLR(model.optimizer, lr_lambda=transformer_lr_lambda)
 
     total_params = sum(p.numel() for p in model.parameters())
     print(
@@ -186,6 +207,10 @@ def run_pipeline(
 
             # Fit model on the minibatch and retrieve batch loss & correct count
             loss, n_correct = model.fit(batch_texts, batch_labels)
+
+            if scheduler_type=="attention-paper":
+                scheduler.step()
+
             running_loss += float(loss) * len(batch)
             correct_train += n_correct
             total_samples += len(batch)
@@ -203,7 +228,11 @@ def run_pipeline(
 
         # Capture current learning rate and step scheduler
         current_lr = model.optimizer.param_groups[0]["lr"]
-        scheduler.step()
+        
+        if scheduler_type=="cosine":
+            scheduler.step()
+        # ^ krok zmiany lr został przsunięty do pętli po batchach, żeby częściej aktualizował 
+        # jest to dostowanie do metody w "Attention ..."
 
         # Epoch testing on validation split
         val_loss, val_acc = evaluate(
@@ -277,6 +306,7 @@ def main() -> None:
     parser.add_argument("--epochs", type=int, default=6, help="Number of training epochs.")
     parser.add_argument("--batch-size", type=int, default=32, help="Minibatch size for training and evaluation.")
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate.")
+    parser.add_argument("--scheduler", type=str, default="attention-paper", choices=["attention-paper", "cosine"], help="Scheduler for changing learning rate dynamically")
     parser.add_argument("--weight-decay", type=float, default=0.01, help="AdamW weight decay penalty.")
     parser.add_argument(
         "--max-train-samples",
