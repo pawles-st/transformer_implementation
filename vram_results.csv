@@ -1,0 +1,3 @@
+timestamp,gpu,torch,stage,base_MiB,post_MiB,peak_MiB,peak_delta_MiB
+2026-11-20T23:13:21,Tesla T4,2.14.1+cu130,inference,20.65,20.65,20.67,0.02
+2026-11-20T23:13:21,Tesla T4,2.14.1+cu130,training,66.34,66.34,78.87,12.52

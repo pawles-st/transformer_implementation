@@ -72,7 +72,7 @@ class Classifier(nn.Module):
             Logits tensor of shape (1, num_classes).
         """
         # 1. Tokenize text -> (seq_len,)
-        tokens = self.tokeniser.encode(x)
+        tokens = self.tokeniser.encode(x).to(next(self.parameters()).device)
 
         # 2. Embed tokens -> (seq_len, d_e)
         embeddings = self.embedder(tokens)
@@ -106,7 +106,7 @@ class Classifier(nn.Module):
 
         # Find target class as a tensor with dim (1,)
         label_idx = self.category_to_idx[y]
-        target = torch.tensor([label_idx], dtype=torch.long)
+        target = torch.tensor([label_idx], dtype=torch.long, device=logits.device)
 
         # Compute loss, backpropagate and optimize
         loss = F.cross_entropy(logits, target)
