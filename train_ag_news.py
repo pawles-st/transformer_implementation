@@ -191,7 +191,7 @@ def run_pipeline(
         )
     if model_type=="lstm":
         metrics_csv_path = (
-            Path(__file__).parent / "data" / "ag_news" / f"lstm_{num_layers}_{d_e}_{hidden_dim}.csv"
+            Path(__file__).parent / "data" / "ag_news" / f"lstm_{num_layers}_{d_e}.csv"
         )
 
     metrics_csv_path.parent.mkdir(parents=True, exist_ok=True)
@@ -353,7 +353,7 @@ def main() -> None:
         default=None,
         help="Optional limit on number of validation samples.",
     )
-    parser.add_argument("--model", type=str, default="transformer", choices=["transformer", "lstm"], help="Model architecture.")
+    parser.add_argument("--model", type=str, default="lstm", choices=["transformer", "lstm"], help="Model architecture.")
     parser.add_argument("--tokenizer", type=str, default="bpe", choices=["bpe", "gpt2"], help="Tokenizer type.")
     parser.add_argument("--num-layers", type=int, default=2, help="Number of encoder/recurrent layers.")
     parser.add_argument("--d-e", type=int, default=64, help="Embedding dimension.")
