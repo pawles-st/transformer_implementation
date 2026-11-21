@@ -1,0 +1,5 @@
+timestamp,gpu,torch,model,tokenizer,params,batch_size,seq_len,stage,base_MiB,post_MiB,peak_MiB,peak_delta_MiB
+2026-11-21T19:04:17,Tesla T4,2.14.1+cu130,transformer,bpe,258690,16,19,inference,9.11,9.11,9.71,0.6
+2026-11-21T19:04:17,Tesla T4,2.14.1+cu130,transformer,bpe,258690,16,19,training,20.21,20.21,21.3,1.09
+2026-11-21T19:04:27,Tesla T4,2.14.1+cu130,lstm,bpe,358402,16,19,inference,9.49,9.49,43.85,34.36
+2026-11-21T19:04:27,Tesla T4,2.14.1+cu130,lstm,bpe,358402,16,19,training,22.66,22.66,58.2,35.55
