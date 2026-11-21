@@ -8,6 +8,7 @@ import copy
 import random
 import time
 from pathlib import Path
+import csv
 
 import torch
 import torch.nn.functional as F
@@ -184,6 +185,34 @@ def run_pipeline(
     history: list[dict] = []
     best_checkpoint_path = Path(__file__).parent / "data" / "ag_news" / f"best_model_{model_type}.pt"
 
+    if model_type=="transformer":
+        metrics_csv_path = (
+            Path(__file__).parent / "data" / "ag_news" / f"transformer_{num_layers}_{h}_{d_e}_{d_k}_{d_ff}.csv"
+        )
+    if model_type=="lstm":
+        metrics_csv_path = (
+            Path(__file__).parent / "data" / "ag_news" / f"lstm_{num_layers}_{d_e}_{hidden_dim}.csv"
+        )
+
+    metrics_csv_path.parent.mkdir(parents=True, exist_ok=True)
+
+    csv_fieldnames = [
+        "epoch",
+        "train_loss",
+        "train_acc",
+        "val_loss",
+        "val_acc",
+        "overfitting_gap",
+        "throughput_sps",
+        "epoch_time_s",
+        "learning_rate",
+        "is_best",
+    ]
+
+    with metrics_csv_path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=csv_fieldnames)
+        writer.writeheader()
+
     # Training loop
     for epoch in range(1, epochs + 1):
         random.shuffle(train_data)
@@ -275,6 +304,10 @@ def run_pipeline(
             "is_best": is_best,
         })
 
+        with metrics_csv_path.open("a", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=list(history[-1].keys()))
+            writer.writerow(history[-1])
+
     # Restore the best validation model checkpoint
     if best_state_dict is not None:
         model.load_state_dict(best_state_dict)
@@ -336,6 +369,7 @@ def main() -> None:
         epochs=args.epochs,
         model_type=args.model,
         tokenizer_type=args.tokenizer,
+        scheduler_type=args.scheduler,
         lr=args.lr,
         weight_decay=args.weight_decay,
         batch_size=args.batch_size,
