@@ -15,7 +15,7 @@ class Embedder(nn.Module):
     information is added separately by the positional encoder.
     """
 
-    def __init__(self, d_e: int, vocab_size: int) -> None:
+    def __init__(self, d_e: int, vocab_size: int, padding_idx: int | None = None) -> None:
         """
         Initialise the embedding layer.
 
@@ -26,10 +26,12 @@ class Embedder(nn.Module):
         Args:
             d_e: Number of dimensions in each embedding vector.
             vocab_size: Number of tokens in the vocabulary.
+            padding_idx: If specified, the entries at padding_idx do not contribute
+                to the gradient and output zeros.
         """
         super().__init__()
         self.d_e = d_e
-        self.embedding = nn.Embedding(vocab_size, d_e)
+        self.embedding = nn.Embedding(vocab_size, d_e, padding_idx=padding_idx)
         
     def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
         """
@@ -40,11 +42,11 @@ class Embedder(nn.Module):
 
         Args:
             token_ids: A torch.long tensor containing token IDs.
-                It can have any shape, such as seq_len.
+                It can have shape (seq_len,) or (batch_size, seq_len).
 
         Returns:
             A floating-point tensor with shape
-            (*token_ids.shape, d_e).
+            (*token_ids.shape, d_e), e.g. (batch_size, seq_len, d_e).
         """
         return self.embedding(token_ids) * math.sqrt(self.d_e)
 
