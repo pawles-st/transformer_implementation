@@ -381,7 +381,7 @@ def main() -> None:
         d_e=args.d_e,
         h=args.heads,
         d_k=args.dk,
-        d_v=dk.args,
+        d_v=args.dk,
         d_ff=args.dff,
         vocab_size=args.vocab_size,
         pooling=args.pooling,
