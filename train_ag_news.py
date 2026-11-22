@@ -353,11 +353,13 @@ def main() -> None:
         default=None,
         help="Optional limit on number of validation samples.",
     )
-    parser.add_argument("--model", type=str, default="lstm", choices=["transformer", "lstm"], help="Model architecture.")
+    parser.add_argument("--model", type=str, default="transformer", choices=["transformer", "lstm"], help="Model architecture.")
     parser.add_argument("--tokenizer", type=str, default="bpe", choices=["bpe", "gpt2"], help="Tokenizer type.")
     parser.add_argument("--num-layers", type=int, default=2, help="Number of encoder/recurrent layers.")
     parser.add_argument("--d-e", type=int, default=64, help="Embedding dimension.")
     parser.add_argument("--heads", type=int, default=4, help="Number of attention heads (transformer only).")
+    parser.add_argument("--dk", type=int, default=16, help="key, query and value dimensions d_q=d_k=d_v.")
+    parser.add_argument("--dff", type=int, default=128, help="Feed forward network size.")
     parser.add_argument("--vocab-size", type=int, default=3000, help="Vocabulary size for BPETokeniser.")
     parser.add_argument("--pooling", type=str, default="mean_max", choices=["mean_max", "max", "mean", "last"], help="Pooling strategy (default: mean_max; 'last' is LSTM only).")
     parser.add_argument("--dropout", type=float, default=0.1, help="Dropout probability (default: 0.1).")
@@ -378,6 +380,9 @@ def main() -> None:
         num_layers=args.num_layers,
         d_e=args.d_e,
         h=args.heads,
+        d_k=args.dk,
+        d_v=dk.args,
+        d_ff=args.dff,
         vocab_size=args.vocab_size,
         pooling=args.pooling,
         dropout=args.dropout,
