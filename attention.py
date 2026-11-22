@@ -51,7 +51,7 @@ class MultiHeadAttention(nn.Module):
         """
         super().__init__()
         self.heads = nn.ModuleList([AttentionHead(d_e, d_k, d_v) for _ in range(h)])
-        self.WO = nn.Parameter(torch.rand(d_v*h, d_e))
+        self.WO = nn.Parameter(nn.init.xavier_uniform_(torch.empty(d_v*h, d_e)))
 
     def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor: # Compute multi-head attention and project: (seq_len, h * d_v) -> (seq_len, d_e).
         """Compute multi-head attention over input representations.

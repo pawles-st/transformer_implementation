@@ -140,6 +140,9 @@ def run_pipeline(
             dropout=dropout,
         )
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+
     if scheduler_type=="cosine":
         # Cosine annealing learning rate scheduler over training epochs
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -165,6 +168,7 @@ def run_pipeline(
             return (d_e ** -0.5) * min(step ** -0.5, step * (warmup_steps ** -1.5))
 
         scheduler = LambdaLR(model.optimizer, lr_lambda=transformer_lr_lambda)
+
 
     total_params = sum(p.numel() for p in model.parameters())
     print(

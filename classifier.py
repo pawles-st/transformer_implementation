@@ -95,6 +95,10 @@ class Classifier(nn.Module):
         """
         # 1. Tokenize text -> (batch_size, seq_len) text + attention mask
         tokens, mask = self.tokeniser.encode(x)
+        
+        device = next(self.parameters()).device
+        tokens = tokens.to(device)
+        mask = mask.to(device)
 
         # 2. Embed tokens -> (batch_size, seq_len, d_e)
         embeddings = self.embedder(tokens)
