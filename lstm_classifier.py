@@ -70,7 +70,13 @@ class LSTMClassifier(nn.Module):
 
     def forward(self, x: str | list[str]) -> torch.Tensor:
         """Pass raw text or batch of texts through the LSTM classifier."""
+        
+        device = next(self.parameters()).device
         tokens, mask = self.tokeniser.encode(x)
+        tokens = tokens.to(device)
+        if mask is not None:
+            mask = mask.to(device)
+            
         embeddings = self.embedder(tokens)
         return self.lstm_model(embeddings, mask=mask)
 
