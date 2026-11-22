@@ -1,4 +1,4 @@
-"""Train and evaluate an LSTM sentiment classifier on SST-2 (batched)."""
+"""Train and evaluate an LSTM classifier on AG News (batched)."""
 
 import argparse
 import copy
@@ -13,7 +13,7 @@ from tqdm.auto import tqdm
 from tokeniser import BPETokeniser, GPT2Tokeniser
 from embedder import Embedder
 from lstm import LSTMM
-from dataset_loader import load_sst2
+from dataset_loader import load_ag_news
 
 CHECKPOINT_PATH = Path("checkpoints/lstm_best.pt")
 
@@ -75,8 +75,8 @@ def run_pipeline(
     device = torch.device(device)
     print("Device:", device)
 
-    # load_sst2 downloads the data first (BPETokeniser trains on it)
-    train_data, val_data = load_sst2(
+    # load_ag_news downloads the data first (BPETokeniser trains on it)
+    train_data, val_data = load_ag_news(
         max_train_samples=max_train_samples,
         max_val_samples=max_val_samples,
     )

@@ -51,7 +51,7 @@ class MultiHeadAttention(nn.Module):
         """
         super().__init__()
         self.heads = nn.ModuleList([AttentionHead(d_e, d_k, d_v) for _ in range(h)])
-        self.WO = nn.Parameter(torch.rand(d_v*h, d_e))
+        self.WO = nn.Parameter(nn.init.xavier_uniform_(torch.empty(d_v*h, d_e)))
 
     def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor: # Compute multi-head attention and project: (seq_len, h * d_v) -> (seq_len, d_e).
         """Compute multi-head attention over input representations.
@@ -67,3 +67,38 @@ class MultiHeadAttention(nn.Module):
 
         multi_head = multi_head@self.WO
         return multi_head
+
+class MultiHeadAttentionParallel(nn.Module):
+    def __init__(self, d_e: int, d_k: int, d_v: int, h: int) -> None:
+
+        super().__init__()
+        self.d_k = d_k
+        self.d_v = d_v
+        self.h = h
+        self.Wk = nn.Parameter(nn.init.xavier_uniform_(torch.empty(d_e, d_k*h)))
+        self.Wq = nn.Parameter(nn.init.xavier_uniform_(torch.empty(d_e, d_k*h)))
+        self.Wv = nn.Parameter(nn.init.xavier_uniform_(torch.empty(d_e, d_v*h)))
+        self.WO = nn.Parameter(nn.init.xavier_uniform_(torch.empty(d_v*h, d_e)))
+        self.attn_dropout = nn.Dropout(p=0.1)
+    
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor: # Compute multi-head attention and project: (seq_len, h * d_v) -> (seq_len, d_e).
+        """Compute multi-head attention over input representations.
+
+        Args:
+            x: FloatTensor of shape (batch_size, seq_len, d_e).
+            mask: tensor of dim (batch size, 1, seq_len) with zeros and -inf indicating padding (-inf=<pad>)
+        Returns:
+            FloatTensor of shape (batch_size, seq_len, d_e).
+        """
+        batch_size, seq_len, _ = x.shape
+        Q = (x@self.Wq).view(batch_size, seq_len, self.h, self.d_k).transpose(1, 2)
+        K = (x@self.Wk).view(batch_size, seq_len, self.h, self.d_k).transpose(1, 2)
+        V = (x@self.Wv).view(batch_size, seq_len, self.h, self.d_v).transpose(1, 2)
+
+        scores = (Q @ K.transpose(-1, -2)) * (self.d_k ** -0.5)
+        if mask is not None:
+            scores = scores + mask
+
+        probs = self.attn_dropout(torch.softmax(scores, dim=-1))
+        context = (probs @ V).transpose(1, 2).contiguous().view(batch_size, seq_len, self.h * self.d_v)
+        return context @ self.WO
