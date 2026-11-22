@@ -93,8 +93,12 @@ class Classifier(nn.Module):
         Returns:
             Logits tensor of shape (batch_size, num_classes).
         """
+        device = next(self.parameters()).device
+        
         # 1. Tokenize text -> (batch_size, seq_len) text + attention mask
         tokens, mask = self.tokeniser.encode(x)
+        tokens = tokens.to(device)
+        mask = mask.to(device)
 
         # 2. Embed tokens -> (batch_size, seq_len, d_e)
         embeddings = self.embedder(tokens)
