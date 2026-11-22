@@ -19,8 +19,9 @@ class EncoderLayer(nn.Module):
             dropout: Dropout probability for attention and FFN.
         """
         super().__init__()
-        self.multi_head = MultiHeadAttention(d_e, d_k, d_v, h)
-        # self.multi_head = MultiHeadAttentionParallel(d_e, d_k, d_v, h)
+        # self.multi_head = MultiHeadAttention(d_e, d_k, d_v, h)
+        self.multi_head = MultiHeadAttentionParallel(d_e, d_k, d_v, h)
+        
         self.layer_norm1 = nn.LayerNorm(d_e)
         self.layer_norm2 = nn.LayerNorm(d_e)
         self.dropout1 = nn.Dropout(p=dropout)
@@ -91,11 +92,10 @@ class Encoder(nn.Module):  # Stack of N identical EncoderLayers.
         attn_mask = torch.zeros(mask.shape, dtype=x.dtype, device=x.device)
         attn_mask = attn_mask.masked_fill(~mask.bool(), float("-inf"))
         
-        attn_mask = attn_mask.unsqueeze(1) # (batch_size, 1, seq_len)
-        
-        # attn_mask = attn_mask.unsqueeze(1).unsqueeze(2) # (batch_size, 1, 1, seq_len)
         # jeśli korzystamy z klasy MultiHeadAttentionParallel musimy podać mask innego wymiaru 
-
+        # attn_mask = attn_mask.unsqueeze(1) # (batch_size, 1, seq_len)
+        attn_mask = attn_mask.unsqueeze(1).unsqueeze(2) # (batch_size, 1, 1, seq_len)
+        
         y  = self.encoder_layers[0](x,attn_mask)
         for i in range(len(self.encoder_layers)-1):
             y = self.encoder_layers[i+1](y, attn_mask)
